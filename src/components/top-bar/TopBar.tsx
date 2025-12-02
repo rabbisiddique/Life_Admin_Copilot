@@ -14,7 +14,7 @@ import { ChevronDown, LogOut, Moon, Settings, Sun, User } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { supabase } from "../../../lib/supabase";
+import { createClient } from "../../../lib/supabase/client";
 import NotificationDropdown from "./NofificationDropDown";
 
 interface Notification {
@@ -71,6 +71,8 @@ export function TopBar() {
   const { theme, setTheme } = useTheme();
   const [notifications, setNotifications] = useState(dummyNotifications);
   const router = useRouter();
+  const supabase = createClient();
+
   useEffect(() => setMounted(true), []);
 
   const markAllAsRead = () => {

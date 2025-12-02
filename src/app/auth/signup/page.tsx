@@ -24,6 +24,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
 import { ArrowRight, Eye, EyeOff, Lock, Mail, User } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import toast from "react-hot-toast";
@@ -46,7 +47,7 @@ const SignUpPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-
+  const router = useRouter();
   // Signup Form
   const signupForm = useForm({
     resolver: zodResolver(signupSchema),
@@ -68,8 +69,8 @@ const SignUpPage = () => {
         toast.error(res.message);
       } else {
         toast.success(res.message);
+        signupForm.reset();
       }
-      signupForm.reset();
     } catch (error: any) {
       // toast.error(error.message);
       console.log(error);

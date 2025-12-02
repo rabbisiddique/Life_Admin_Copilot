@@ -1,8 +1,9 @@
 // app/api/users/sync/route.ts
 import { NextResponse } from "next/server";
-import { supabase } from "../../../../../lib/supabase";
+import { createClient } from "../../../../../lib/supabase/client";
 
 export async function POST(req: Request) {
+  const supabase = createClient();
   try {
     const body = await req.json();
     const { user } = body;

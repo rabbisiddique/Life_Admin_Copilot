@@ -1,6 +1,6 @@
 import { BillList } from "@/components/reminders/bill-list";
 
-export default function BillsPage() {
+export default async function BillsPage() {
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       <div className="flex-1 p-4 md:p-6">

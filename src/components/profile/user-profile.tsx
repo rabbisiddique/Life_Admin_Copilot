@@ -183,7 +183,10 @@ export default function UserProfile() {
                 {/* Contact Details */}
                 <div className="w-full space-y-2">
                   <motion.div
-                    whileHover={{ x: 6, backgroundColor: "hsl(var(--accent))" }}
+                    whileHover={{
+                      x: 6,
+                      backgroundColor: "hsl(var(--accent))",
+                    }}
                     className="flex items-center gap-3 p-3 rounded-xl transition-all cursor-pointer group"
                   >
                     <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
@@ -200,7 +203,10 @@ export default function UserProfile() {
                   </motion.div>
 
                   <motion.div
-                    whileHover={{ x: 6, backgroundColor: "hsl(var(--accent))" }}
+                    whileHover={{
+                      x: 6,
+                      backgroundColor: "hsl(var(--accent))",
+                    }}
                     className="flex items-center gap-3 p-3 rounded-xl transition-all cursor-pointer group"
                   >
                     <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
@@ -215,7 +221,10 @@ export default function UserProfile() {
                   </motion.div>
 
                   <motion.div
-                    whileHover={{ x: 6, backgroundColor: "hsl(var(--accent))" }}
+                    whileHover={{
+                      x: 6,
+                      backgroundColor: "hsl(var(--accent))",
+                    }}
                     className="flex items-center gap-3 p-3 rounded-xl transition-all cursor-pointer group"
                   >
                     <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
@@ -230,7 +239,10 @@ export default function UserProfile() {
                   </motion.div>
 
                   <motion.div
-                    whileHover={{ x: 6, backgroundColor: "hsl(var(--accent))" }}
+                    whileHover={{
+                      x: 6,
+                      backgroundColor: "hsl(var(--accent))",
+                    }}
                     className="flex items-center gap-3 p-3 rounded-xl transition-all cursor-pointer group"
                   >
                     <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">

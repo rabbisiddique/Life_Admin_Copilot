@@ -1,9 +1,11 @@
 // hooks/useSyncUser.ts
 "use client";
 import { useEffect } from "react";
-import { supabase } from "../lib/supabase";
+import { createClient } from "../lib/supabase/client";
 
 export default function useSyncUser() {
+  const supabase = createClient();
+
   useEffect(() => {
     const syncUser = async () => {
       const {

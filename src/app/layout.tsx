@@ -1,7 +1,7 @@
-import type { Metadata } from "next";
-// <CHANGE> Using Inter font as specified in the theme
+// app/layout.tsx
 import ClientLayout from "@/components/ClientLayout";
 import { ThemeProvider } from "@/components/theme-provider";
+import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import React from "react";
 import { Toaster } from "react-hot-toast";
@@ -10,12 +10,11 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  // <CHANGE> Updated metadata for Life-Admin Copilot
   title: "Life-Admin Copilot",
   description:
     "Your AI-powered productivity assistant for managing tasks, bills, documents, and habits",
   icons: {
-    icon: [{ url: "/logo.jpg" }], // <-- use `url` instead of `href`
+    icon: [{ url: "/logo.jpg" }],
   },
 };
 
@@ -25,9 +24,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+    <html lang="en" suppressHydrationWarning>
+      <body className={inter.className} suppressHydrationWarning>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
           <Toaster
             position="top-center"
             toastOptions={{

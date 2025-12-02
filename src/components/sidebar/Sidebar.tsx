@@ -20,7 +20,7 @@ import { useState } from "react";
 import { cn } from "../../../lib/utils";
 
 const navigation = [
-  { name: "Dashboard", href: "/", icon: LayoutDashboard },
+  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Tasks", href: "/tasks", icon: CheckSquare },
   { name: "Habits", href: "/habits", icon: Activity },
   { name: "Bills", href: "/bills", icon: CreditCard },

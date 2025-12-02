@@ -30,16 +30,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Calendar, Check, Clock, Plus, X } from "lucide-react";
 import { useState } from "react";
 import { cn } from "../../../lib/utils";
-
-type Bill = {
-  id: string;
-  name: string;
-  amount: number;
-  dueDate: string;
-  status: "paid" | "pending" | "overdue";
-  category: "subscription" | "utility" | "rent" | "other";
-  icon: string;
-};
+import { Bill } from "../../../type/index.bills";
 
 const initialBills: Bill[] = [
   {
@@ -83,7 +74,7 @@ const initialBills: Bill[] = [
     name: "Internet",
     amount: 59.99,
     dueDate: "2024-03-15",
-    status: "overdue",
+    status: "due",
     category: "utility",
     icon: "🌐",
   },
@@ -97,7 +88,7 @@ export function BillList() {
     switch (status) {
       case "paid":
         return "bg-green-500/15 text-green-600 dark:text-green-500 border-green-500/30";
-      case "overdue":
+      case "due":
         return "bg-red-500/15 text-red-600 dark:text-red-500 border-red-500/30";
       default:
         return "bg-yellow-500/15 text-yellow-600 dark:text-yellow-500 border-yellow-500/30";

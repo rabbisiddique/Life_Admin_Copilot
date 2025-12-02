@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import useSyncUser from "../../hooks/UserSync";
 import { ChatWidget } from "./ai-copilot/chat-widget";
 import { Sidebar } from "./sidebar/Sidebar";
@@ -12,18 +13,35 @@ export default function ClientLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const [isMounted, setIsMounted] = useState(false);
 
-  const hideUI =
-    pathname.startsWith("/auth") ||
-    pathname === "/login" ||
-    pathname === "/signup";
+  // IMPORTANT: Call all hooks at the top level, unconditionally
+  useSyncUser();
+
+  // Define auth routes (no UI chrome)
+  const exactRoutes = ["/", "/not-found"];
+  const prefixRoutes = ["/auth"];
+
+  const isAuthRoute =
+    exactRoutes.includes(pathname) ||
+    prefixRoutes.some((route) => pathname.startsWith(route));
+
+  // Fix hydration: only run after mount
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  // Don't render anything until mounted (prevents hydration mismatch)
+  if (!isMounted) {
+    return null;
+  }
 
   // AUTH PAGES → No sidebar, no topbar, no chat widget
-  if (hideUI) {
+  if (isAuthRoute) {
     return <>{children}</>;
   }
-  useSyncUser();
-  // DASHBOARD PAGES → Full layout
+
+  // ALL OTHER PAGES → Full layout
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       <Sidebar />

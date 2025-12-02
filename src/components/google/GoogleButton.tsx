@@ -1,11 +1,11 @@
 "use client";
 import { useState } from "react";
-import { supabase } from "../../../lib/supabase";
+import { createClient } from "../../../lib/supabase/client";
 import { Button } from "../ui/button";
 
 const GoogleButton = () => {
   const [loading, setLoading] = useState(false);
-
+  const supabase = createClient();
   const handleGoogleAuth = async () => {
     try {
       setLoading(true);

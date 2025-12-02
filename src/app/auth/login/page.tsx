@@ -58,11 +58,11 @@ const LoginPage = () => {
 
       if (res.success) {
         toast.success(res.message);
-        router.push("/");
+        router.push("/dashboard");
+        loginForm.reset();
       } else {
         toast.error(res.message);
       }
-      loginForm.reset();
     } catch (error: any) {
       toast.error(error.message);
       console.log(error);
