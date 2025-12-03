@@ -2,12 +2,22 @@
 import ClientLayout from "@/components/ClientLayout";
 import { ThemeProvider } from "@/components/theme-provider";
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter_Tight, Sora } from "next/font/google";
 import React from "react";
 import { Toaster } from "react-hot-toast";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"] });
+const interTight = Inter_Tight({
+  subsets: ["latin"],
+  variable: "--font-inter-tight",
+  display: "swap",
+});
+
+const sora = Sora({
+  subsets: ["latin"],
+  variable: "--font-sora",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Life-Admin Copilot",
@@ -24,14 +34,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={inter.className} suppressHydrationWarning>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={`${interTight.variable} ${sora.variable}`}
+    >
+      <body suppressHydrationWarning>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <Toaster
             position="top-center"
             toastOptions={{
@@ -61,7 +70,7 @@ export default function RootLayout({
                 iconTheme: { primary: "#ef4444", secondary: "#fef2f2" },
               },
             }}
-          />
+          />{" "}
           <ClientLayout>{children}</ClientLayout>
         </ThemeProvider>
       </body>

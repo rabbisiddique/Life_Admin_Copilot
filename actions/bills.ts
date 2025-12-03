@@ -1,18 +1,18 @@
 "use server";
 
 import { createServerSupabaseClient } from "../lib/supabase/server";
-import { ITasks } from "../type/index.tasks";
+import { Bill } from "../type/index.bills";
 
-export const CreateTaskAction = async (tasks: ITasks) => {
+export const CreateBillsAction = async (bills: Bill) => {
   try {
     const supabase = await createServerSupabaseClient();
     const { data: userData } = await supabase.auth.getUser();
     // Add .select() to get the inserted row(s)
     const { data, error } = await supabase
-      .from("tasks")
+      .from("bills")
       .insert([
         {
-          ...tasks,
+          ...bills,
           user_id: userData.user?.id,
         },
       ])
@@ -25,11 +25,11 @@ export const CreateTaskAction = async (tasks: ITasks) => {
       };
     }
 
-    // revalidatePath("/tasks");
+    // revalidatePath("/Billss");
 
     return {
       success: true,
-      message: "Task Created Successfully",
+      message: "Bill Created Successfully",
       data,
     };
   } catch (err: any) {
@@ -41,13 +41,13 @@ export const CreateTaskAction = async (tasks: ITasks) => {
   }
 };
 
-export const UpdateTaskAction = async (tasks: ITasks, id: string) => {
+export const UpdateBillsAction = async (bills: Bill, id: string) => {
   try {
     const supabase = await createServerSupabaseClient();
 
     const { data, error } = await supabase
-      .from("tasks")
-      .update(tasks)
+      .from("bills")
+      .update(bills)
       .eq("id", id)
       .select();
     if (error) {
@@ -58,7 +58,7 @@ export const UpdateTaskAction = async (tasks: ITasks, id: string) => {
     }
     return {
       success: true,
-      message: "Task Updated Successfully",
+      message: "Bills Updated Successfully",
       data,
     };
   } catch (err) {
@@ -70,12 +70,12 @@ export const UpdateTaskAction = async (tasks: ITasks, id: string) => {
   }
 };
 
-export const DeleteTaskAction = async (id: string) => {
+export const DeleteBillsAction = async (id: string) => {
   try {
     const supabase = await createServerSupabaseClient();
 
     const { data, error } = await supabase
-      .from("tasks")
+      .from("bills")
       .delete()
       .eq("id", id)
       .select();
@@ -88,7 +88,7 @@ export const DeleteTaskAction = async (id: string) => {
 
     return {
       success: true,
-      message: "Task Deleted Successfully",
+      message: "Bill Deleted Successfully",
       data,
     };
   } catch (err) {
@@ -100,12 +100,12 @@ export const DeleteTaskAction = async (id: string) => {
   }
 };
 
-export const GetAllTaskAction = async () => {
+export const GetAllBillsAction = async () => {
   try {
     const supabase = await createServerSupabaseClient();
 
     const { data, error } = await supabase
-      .from("tasks")
+      .from("bills")
       .select("*")
       .order("created_at", { ascending: false });
     if (error) {
@@ -114,11 +114,11 @@ export const GetAllTaskAction = async () => {
         message: error.message,
       };
     }
-    // revalidatePath("/tasks");
+    // revalidatePath("/Billss");
 
     return {
       success: true,
-      message: "Found Tasks",
+      message: "Found Bills",
       data,
     };
   } catch (err) {
@@ -128,4 +128,23 @@ export const GetAllTaskAction = async () => {
       message: "Something went wrong. Please try again.",
     };
   }
+};
+
+export const BillMarkPaid = async (id: string) => {
+  const supabase = await createServerSupabaseClient();
+
+  const { data, error } = await supabase
+    .from("bills")
+    .update({ status: "paid" as const }) // only update the status
+    .eq("id", id);
+
+  if (error) {
+    console.error("Error updating bill:", error);
+    return;
+  }
+  return {
+    success: true,
+    message: "paid 🥳",
+    data,
+  };
 };

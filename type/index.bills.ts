@@ -1,9 +1,9 @@
 export interface Bill {
   id: string;
-  name: string;
+  title: string;
   amount: number;
-  dueDate: string;
-  status: "paid" | "pending" | "due";
-  category: "subscription" | "utility" | "rent" | "other";
-  icon: string;
+  category: "subscription" | "utility" | "rent" | "insurance" | "other";
+  due_date: string;
+  status: "paid" | "pending" | "overdue";
+  recurrence?: "monthly" | "yearly" | "one-time";
 }

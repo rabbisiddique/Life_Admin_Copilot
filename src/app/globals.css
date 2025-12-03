@@ -5,6 +5,8 @@
 
 /* Updated theme to match design inspiration - soft blue-gray base with vibrant orange accent */
 :root {
+  --font-primary: var(--font-inter-tight);
+  --font-heading: var(--font-sora);
   --background: oklch(0.98 0.004 240);
   --foreground: oklch(0.2 0.015 240);
   --card: oklch(1 0 0);
@@ -151,6 +153,20 @@
   --shadow-md: var(--shadow-md);
   --shadow-lg: var(--shadow-lg);
   --shadow-xl: var(--shadow-xl);
+}
+
+html {
+  font-family: var(--font-primary);
+}
+
+/* Headings use Sora automatically */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-heading);
 }
 
 @layer base {
