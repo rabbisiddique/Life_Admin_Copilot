@@ -30,7 +30,9 @@ export const SignUp = async (formData: ISignup) => {
         emailRedirectTo: "http://localhost:3000/api/auth/callback/",
 
         data: {
-          full_name: formData.full_name,
+          first_name: formData.first_name,
+          last_name: formData.last_name,
+          location: formData.location,
           avatar_url: formData.avatar_url || null,
         },
       },
@@ -59,7 +61,9 @@ export const SignUp = async (formData: ISignup) => {
     const { error: profileError } = await supabase.from("users").insert({
       id: user.id,
       email: user.email,
-      full_name: user.user_metadata?.full_name || formData.full_name,
+      first_name: user.user_metadata?.first_name || formData.first_name,
+      last_name: user.user_metadata?.last_name || formData.last_name,
+      location: user.user_metadata?.location || formData.location,
       avatar_url: user.user_metadata?.avatar_url || formData.avatar_url,
       is_verified: false,
       created_at: new Date().toISOString(),

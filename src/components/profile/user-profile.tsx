@@ -17,57 +17,240 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion } from "framer-motion";
 import {
+  AlertCircle,
   Bell,
   Calendar,
   Camera,
   CheckCircle2,
   Edit2,
+  Loader,
   Lock,
   Mail,
   MapPin,
-  Phone,
   Save,
   Shield,
   User,
   X,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import toast from "react-hot-toast";
+import {
+  updateProfileAvatarUrl,
+  updateUserProfile,
+} from "../../../actions/profile";
+import { useAuth } from "../../../hooks/useAuth";
+import {
+  emailConfirmedAt,
+  getMemberSinceFormatted,
+} from "../../../lib/date/date";
+import { createClient } from "../../../lib/supabase/client";
+import { uploadAvatar } from "../../../lib/uploadFile";
 
 export default function UserProfile() {
+  const { user } = useAuth();
+  const [profileData, setProfileData] = useState({
+    first_name: user?.user_metadata?.first_name || "",
+    last_name: user?.user_metadata?.last_name || "",
+    location: user?.user_metadata?.location || "",
+  });
+
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
+
   const [previewUrl, setPreviewUrl] = useState(null);
   const [activeTab, setActiveTab] = useState("general");
+
   const fileInputRef = useRef(null);
+  const supabase = createClient();
+  console.log("user", user);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setIsLoading(true);
-    setTimeout(() => {
+    try {
+      const res = await updateUserProfile(profileData, user!.id);
+      console.log("res", res);
+
+      if (res.success) {
+        toast.success(res.message);
+        setIsEditing(false);
+
+        // Optionally refresh the user session to get updated metadata
+        await supabase.auth.refreshSession();
+      } else {
+        toast.error(res.message || "Failed to update profile");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("An error occurred while updating profile");
+    } finally {
       setIsLoading(false);
-      setIsEditing(false);
-    }, 1000);
+    }
+  };
+  // Helper function to extract file path from URL
+  const getFilePathFromUrl = (url: string): string | null => {
+    try {
+      const urlObj = new URL(url);
+      const pathname = urlObj.pathname;
+      // Extract path after /storage/v1/object/public/avatars/
+      const match = pathname.match(/\/avatars\/(.+)$/);
+      return match ? match[1] : null;
+    } catch {
+      return null;
+    }
   };
 
-  const handleImageChange = (e) => {
+  // Helper function to delete old avatar from storage
+  const deleteOldAvatar = async (oldUrl: string) => {
+    if (!oldUrl) return;
+
+    const filePath = getFilePathFromUrl(oldUrl);
+    if (!filePath) return;
+
+    try {
+      const { error } = await supabase.storage
+        .from("avatars")
+        .remove([filePath]);
+
+      if (error) {
+        console.error("Error deleting old avatar:", error);
+      } else {
+        console.log("Old avatar deleted successfully");
+      }
+    } catch (error) {
+      console.error("Error in deleteOldAvatar:", error);
+    }
+  };
+
+  const handleImageChange = async (e) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setSelectedImage(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreviewUrl(reader?.result);
-      };
-      reader.readAsDataURL(file);
+    if (!file || !user?.id) return;
+
+    // Validate file size (e.g., max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image must be less than 5MB");
+      return;
+    }
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please upload an image file");
+      return;
+    }
+
+    setIsUploading(true);
+
+    // Show preview immediately
+    setSelectedImage(file);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setPreviewUrl(reader?.result);
+    };
+    reader.readAsDataURL(file);
+
+    try {
+      // Get old avatar URL before uploading new one
+      const oldAvatarUrl = user?.user_metadata?.avatar_url;
+
+      // 1. Upload new avatar to storage
+      const newUrl = await uploadAvatar(file, user.id);
+      if (!newUrl) {
+        toast.error("Failed to upload avatar");
+        setIsUploading(false);
+        return;
+      }
+
+      // 2. Update user metadata using Supabase's updateUser
+      const { data, error } = await supabase.auth.updateUser({
+        data: {
+          avatar_url: newUrl,
+        },
+      });
+
+      if (error) {
+        toast.error(error.message);
+        setIsUploading(false);
+        return;
+      }
+
+      // 3. Update the profile table if you have one
+      const res = await updateProfileAvatarUrl(user.id, newUrl);
+
+      if (res.success) {
+        // 4. Delete old avatar from storage (after successful update)
+        if (oldAvatarUrl) {
+          await deleteOldAvatar(oldAvatarUrl);
+        }
+
+        toast.success("Avatar updated successfully!");
+      } else {
+        toast.error("Failed to update profile");
+      }
+    } catch (error) {
+      console.error("Avatar update error:", error);
+      toast.error("Failed to update avatar");
+    } finally {
+      setIsUploading(false);
     }
   };
 
-  const handleRemoveImage = () => {
-    setSelectedImage(null);
-    setPreviewUrl(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
+  const handleRemoveImage = async () => {
+    if (!user?.id) return;
+
+    setIsUploading(true);
+
+    try {
+      const oldAvatarUrl = user?.user_metadata?.avatar_url;
+
+      // Update user metadata to remove avatar
+      const { error } = await supabase.auth.updateUser({
+        data: {
+          avatar_url: null,
+        },
+      });
+
+      if (error) {
+        toast.error(error.message);
+        setIsUploading(false);
+        return;
+      }
+
+      // Update profile table
+      await updateProfileAvatarUrl(user.id, null);
+
+      // Delete from storage
+      if (oldAvatarUrl) {
+        await deleteOldAvatar(oldAvatarUrl);
+      }
+
+      setPreviewUrl(null);
+      setSelectedImage(null);
+      toast.success("Avatar removed successfully");
+    } catch (error) {
+      console.error("Remove avatar error:", error);
+      toast.error("Failed to remove avatar");
+    } finally {
+      setIsUploading(false);
     }
   };
+
+  // Initialize preview from user data
+  useEffect(() => {
+    if (user?.user_metadata?.avatar_url) {
+      setPreviewUrl(user.user_metadata.avatar_url);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (user) {
+      setProfileData({
+        first_name: user.user_metadata?.first_name || "",
+        last_name: user.user_metadata?.last_name || "",
+        location: user.user_metadata?.location || "",
+      });
+    }
+  }, [user]);
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -106,10 +289,23 @@ export default function UserProfile() {
             animate={{ opacity: 1, scale: 1 }}
             whileHover={{ scale: 1.05 }}
           >
-            <Badge variant="secondary" className="text-sm px-4 py-2 shadow-lg">
-              <CheckCircle2 className="mr-2 h-4 w-4 text-green-500" />
-              Verified Account
-            </Badge>
+            {user?.email_confirmed_at ? (
+              <Badge
+                variant="secondary"
+                className="text-sm px-4 py-2 shadow-lg bg-green-500/10 border-green-500/20"
+              >
+                <CheckCircle2 className="mr-2 h-4 w-4 text-green-500" />
+                Verified Account
+              </Badge>
+            ) : (
+              <Badge
+                variant="secondary"
+                className="text-sm px-4 py-2 shadow-lg bg-yellow-500/10 border-yellow-500/20"
+              >
+                <AlertCircle className="mr-2 h-4 w-4 text-yellow-500" />
+                Unverified Account
+              </Badge>
+            )}
           </motion.div>
         </motion.div>
 
@@ -127,46 +323,104 @@ export default function UserProfile() {
                 {/* Avatar */}
                 <motion.div
                   className="relative group"
-                  whileHover={{ scale: 1.05 }}
+                  whileHover={{ scale: isUploading ? 1 : 1.05 }}
                   transition={{ type: "spring", stiffness: 300, damping: 20 }}
                 >
                   <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-primary/40 rounded-full blur-2xl group-hover:blur-3xl transition-all" />
+
                   <Avatar className="relative h-36 w-36 border-4 border-background shadow-2xl ring-4 ring-primary/20 group-hover:ring-primary/40 transition-all">
-                    <AvatarImage src={previewUrl || "/placeholder-user.jpg"} />
+                    <AvatarImage
+                      src={
+                        previewUrl ||
+                        user?.user_metadata?.avatar_url ||
+                        "/placeholder-user.jpg"
+                      }
+                      className={
+                        isUploading
+                          ? "opacity-50"
+                          : "group-hover:opacity-70 transition-opacity"
+                      }
+                    />
                     <AvatarFallback className="text-5xl bg-gradient-to-br from-primary to-primary/70 text-primary-foreground font-bold">
-                      JD
+                      {user?.user_metadata?.full_name?.[0]?.toUpperCase() ||
+                        user?.email?.[0]?.toUpperCase() ||
+                        "U"}
                     </AvatarFallback>
                   </Avatar>
+
+                  {/* Hover Overlay with Icons */}
+                  {!isUploading && (
+                    <div className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center gap-3">
+                      <motion.button
+                        initial={{ scale: 0 }}
+                        whileHover={{ scale: 1.1 }}
+                        animate={{ scale: 1 }}
+                        transition={{
+                          type: "spring",
+                          stiffness: 300,
+                          damping: 20,
+                        }}
+                        onClick={() => fileInputRef.current?.click()}
+                        className="h-12 w-12 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground flex items-center justify-center shadow-lg transition-all"
+                        title="Change avatar"
+                      >
+                        <Camera className="h-5 w-5" />
+                      </motion.button>
+
+                      {previewUrl && (
+                        <motion.button
+                          initial={{ scale: 0 }}
+                          whileHover={{ scale: 1.1 }}
+                          animate={{ scale: 1 }}
+                          transition={{
+                            type: "spring",
+                            stiffness: 300,
+                            damping: 20,
+                            delay: 0.05,
+                          }}
+                          onClick={handleRemoveImage}
+                          className="h-12 w-12 rounded-full bg-destructive hover:bg-destructive/90 text-destructive-foreground flex items-center justify-center shadow-lg transition-all"
+                          title="Remove avatar"
+                        >
+                          <X className="h-5 w-5" />
+                        </motion.button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Loading Overlay */}
+                  {isUploading && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="absolute inset-0 bg-black/60 rounded-full flex items-center justify-center backdrop-blur-sm"
+                    >
+                      <div className="flex flex-col items-center gap-2">
+                        <Loader className="h-8 w-8 text-white animate-spin" />
+                        <span className="text-white text-xs font-medium">
+                          Uploading...
+                        </span>
+                      </div>
+                    </motion.div>
+                  )}
+
                   <input
                     ref={fileInputRef}
                     type="file"
                     accept="image/*"
                     onChange={handleImageChange}
                     className="hidden"
+                    disabled={isUploading}
                   />
-                  <Button
-                    size="icon"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="absolute bottom-2 right-2 rounded-full shadow-lg hover:shadow-xl bg-primary hover:bg-primary/90 group-hover:scale-110 transition-all"
-                  >
-                    <Camera className="h-4 w-4" />
-                  </Button>
-                  {previewUrl && (
-                    <motion.button
-                      initial={{ opacity: 0, scale: 0.5 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.5 }}
-                      onClick={handleRemoveImage}
-                      className="absolute top-2 right-2 h-8 w-8 rounded-full bg-destructive hover:bg-destructive/90 text-destructive-foreground flex items-center justify-center shadow-lg transition-all"
-                    >
-                      <X className="h-4 w-4" />
-                    </motion.button>
-                  )}
                 </motion.div>
 
                 {/* User Info */}
                 <div className="text-center space-y-2 w-full">
-                  <h3 className="text-2xl font-bold">John Doe</h3>
+                  <h3 className="text-2xl font-bold">
+                    {" "}
+                    {user?.user_metadata?.first_name?.toUpperCase() ||
+                      "John Doe"}
+                  </h3>
                   <p className="text-muted-foreground">Product Designer</p>
                   <div className="flex justify-center gap-2 pt-2">
                     <Badge className="bg-gradient-to-r from-primary to-primary/80 shadow-md">
@@ -197,7 +451,7 @@ export default function UserProfile() {
                         Email
                       </p>
                       <p className="text-sm font-medium truncate">
-                        john.doe@example.com
+                        {user?.user_metadata?.email}
                       </p>
                     </div>
                   </motion.div>
@@ -210,13 +464,16 @@ export default function UserProfile() {
                     className="flex items-center gap-3 p-3 rounded-xl transition-all cursor-pointer group"
                   >
                     <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                      <Phone className="h-4 w-4 text-primary" />
+                      <Calendar className="h-4 w-4 text-primary" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs text-muted-foreground font-medium">
-                        Phone
+                        Email Confirmed At
                       </p>
-                      <p className="text-sm font-medium">+1 (555) 123-4567</p>
+                      <p className="text-sm font-medium">
+                        {emailConfirmedAt(user?.email_confirmed_at) ??
+                          "Not confirmed"}
+                      </p>
                     </div>
                   </motion.div>
 
@@ -234,7 +491,9 @@ export default function UserProfile() {
                       <p className="text-xs text-muted-foreground font-medium">
                         Location
                       </p>
-                      <p className="text-sm font-medium">San Francisco, CA</p>
+                      <p className="text-sm font-medium">
+                        {user?.user_metadata?.location}
+                      </p>
                     </div>
                   </motion.div>
 
@@ -252,7 +511,9 @@ export default function UserProfile() {
                       <p className="text-xs text-muted-foreground font-medium">
                         Member Since
                       </p>
-                      <p className="text-sm font-medium">January 2024</p>
+                      <p className="text-sm font-medium">
+                        {getMemberSinceFormatted(user?.created_at) ?? "-"}
+                      </p>
                     </div>
                   </motion.div>
                 </div>
@@ -331,10 +592,15 @@ export default function UserProfile() {
                             First Name
                           </Label>
                           <Input
-                            id="firstName"
-                            defaultValue="John"
                             disabled={!isEditing}
                             className="transition-all focus:ring-2 focus:ring-primary disabled:opacity-60"
+                            value={profileData.first_name}
+                            onChange={(e) =>
+                              setProfileData({
+                                ...profileData,
+                                first_name: e.target.value,
+                              })
+                            }
                           />
                         </div>
                         <div className="space-y-2">
@@ -345,67 +611,39 @@ export default function UserProfile() {
                             Last Name
                           </Label>
                           <Input
-                            id="lastName"
-                            defaultValue="Doe"
                             disabled={!isEditing}
                             className="transition-all focus:ring-2 focus:ring-primary disabled:opacity-60"
+                            value={profileData.last_name}
+                            onChange={(e) =>
+                              setProfileData({
+                                ...profileData,
+                                last_name: e.target.value,
+                              })
+                            }
                           />
                         </div>
-                        <div className="space-y-2">
-                          <Label
-                            htmlFor="email"
-                            className="text-sm font-semibold"
-                          >
-                            Email Address
-                          </Label>
-                          <Input
-                            id="email"
-                            type="email"
-                            defaultValue="john.doe@example.com"
-                            disabled={!isEditing}
-                            className="transition-all focus:ring-2 focus:ring-primary disabled:opacity-60"
-                          />
-                        </div>
+
                         <div className="space-y-2">
                           <Label
                             htmlFor="phone"
                             className="text-sm font-semibold"
                           >
-                            Phone Number
+                            Location
                           </Label>
                           <Input
-                            id="phone"
-                            defaultValue="+1 (555) 123-4567"
                             disabled={!isEditing}
                             className="transition-all focus:ring-2 focus:ring-primary disabled:opacity-60"
+                            value={profileData.location}
+                            onChange={(e) =>
+                              setProfileData({
+                                ...profileData,
+                                location: e.target.value,
+                              })
+                            }
                           />
                         </div>
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="bio" className="text-sm font-semibold">
-                          Bio
-                        </Label>
-                        <Input
-                          id="bio"
-                          defaultValue="Product Designer based in San Francisco. I love building clean and accessible interfaces."
-                          disabled={!isEditing}
-                          className="transition-all focus:ring-2 focus:ring-primary disabled:opacity-60"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label
-                          htmlFor="website"
-                          className="text-sm font-semibold"
-                        >
-                          Website
-                        </Label>
-                        <Input
-                          id="website"
-                          defaultValue="https://johndoe.com"
-                          disabled={!isEditing}
-                          className="transition-all focus:ring-2 focus:ring-primary disabled:opacity-60"
-                        />
-                      </div>
+
                       {isEditing && (
                         <div className="flex justify-end gap-3 pt-4">
                           <Button
