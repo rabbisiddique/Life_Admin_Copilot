@@ -2,11 +2,13 @@
 
 import { createServerSupabaseClient } from "../lib/supabase/server";
 import { ITasks } from "../type/index.tasks";
+import { createTaskNotification } from "./notifications";
 
 export const CreateTaskAction = async (tasks: ITasks) => {
   try {
     const supabase = await createServerSupabaseClient();
     const { data: userData } = await supabase.auth.getUser();
+    const taskName = tasks.title;
     // Add .select() to get the inserted row(s)
     const { data, error } = await supabase
       .from("tasks")
@@ -25,8 +27,8 @@ export const CreateTaskAction = async (tasks: ITasks) => {
       };
     }
 
-    // revalidatePath("/tasks");
-
+    // Create notification
+    await createTaskNotification(taskName, data?.[0].id);
     return {
       success: true,
       message: "Task Created Successfully",

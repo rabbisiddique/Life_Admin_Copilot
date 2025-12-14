@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import useSyncUser from "../../hooks/UserSync";
 import { ChatWidget } from "./ai-copilot/chat-widget";
+import { NotificationListener } from "./notifications/NotificationListener";
 import { Sidebar } from "./sidebar/Sidebar";
 import { TopBar } from "./top-bar/TopBar";
 
@@ -48,6 +49,8 @@ export default function ClientLayout({
 
       <div className="flex flex-1 flex-col md:pl-64">
         <TopBar />
+        {/* 🔔 GLOBAL REAL-TIME NOTIFICATIONS */}
+        <NotificationListener />
         <main className="flex-1 overflow-y-auto p-6 md:p-8 lg:p-10">
           {children}
         </main>

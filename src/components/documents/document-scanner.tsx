@@ -49,6 +49,10 @@ import {
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { extractDocument } from "../../../actions/dcouments";
+import {
+  createExpiryNotification,
+  createRenewNotification,
+} from "../../../actions/notifications";
 import { createClient } from "../../../lib/supabase/client";
 import { Document } from "../../../type/index.documents";
 import Spinner from "../Spinner/Spinner";
@@ -331,8 +335,28 @@ export default function DocumentScanner() {
         documentData.ai_confidence_score = extractedData.confidence;
 
       // Insert into database
-      const { error } = await supabase.from("documents").insert([documentData]);
+      const { data: insertedDocs, error } = await supabase
+        .from("documents")
+        .insert([documentData])
+        .select();
+
       if (error) throw error;
+      if (!insertedDocs || insertedDocs.length === 0) {
+        throw new Error("Document insertion failed: no data returned");
+      }
+      const insertedDocId = insertedDocs![0].id;
+
+      // Create expiry notification 2 days before
+      if (expiryDate) {
+        await createExpiryNotification(
+          user.id,
+          "Document Expiry Alert",
+          `Your document "${uploadForm.name}" will expire in 2 days!`,
+          "document",
+          `/documents`,
+          expiryDate.toISOString().split("T")[0]
+        );
+      }
 
       toast.success("Document uploaded successfully!");
 
@@ -378,6 +402,9 @@ export default function DocumentScanner() {
   // Renew document (add 1 year)
   const handleRenew = async (id: string) => {
     try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       const doc = documents.find((d) => d.id === id);
       if (!doc) return;
 
@@ -386,15 +413,25 @@ export default function DocumentScanner() {
       const newExpiryDate = newDate.toISOString().split("T")[0];
       const newStatus = calculateStatus(newExpiryDate);
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("documents")
         .update({
           expiry_date: newExpiryDate,
           status: newStatus,
         })
-        .eq("id", id);
-
+        .eq("id", id)
+        .select()
+        .single();
       if (error) throw error;
+
+      await createRenewNotification(
+        user!.id,
+        "Document Renewed",
+        `Your passport has been successfully renewed!`,
+        "document",
+        `/documents`
+      );
+
       toast.success("Document renewed for 1 year", { id: "renew-doc" });
     } catch (err) {
       console.error("Renew error:", err);

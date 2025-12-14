@@ -62,6 +62,9 @@ import {
   GetAllBillsAction,
   UpdateBillsAction,
 } from "../../../actions/bills";
+import { createBillPaidNotification } from "../../../actions/notifications";
+import { useAuth } from "../../../hooks/useAuth";
+import { useBillNotifications } from "../../../hooks/useBillNotifications";
 import { createClient } from "../../../lib/supabase/client";
 import { Bill } from "../../../type/index.bills";
 import Spinner from "../Spinner/Spinner";
@@ -112,7 +115,7 @@ export default function BillList() {
   const [isCreating, setIsCreating] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const supabase = createClient();
-
+  const { user } = useAuth();
   // React Hook Form with Zod
   const form = useForm<BillFormData>({
     resolver: zodResolver(billSchema),
@@ -286,7 +289,11 @@ export default function BillList() {
         // Revert optimistic update on error
         throw error;
       }
-
+      await createBillPaidNotification(
+        user?.id!,
+        updatedBill.title,
+        updatedBill.id
+      );
       // Real-time will handle the update, but we already updated optimistically
       toast.success("Bill marked as paid!");
     } catch (err: any) {
@@ -361,6 +368,8 @@ export default function BillList() {
       });
     }
   }, [editingBill, form]);
+
+  useBillNotifications(bills, user?.id!);
 
   if (isLoading) {
     return (

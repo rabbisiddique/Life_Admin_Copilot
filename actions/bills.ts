@@ -2,6 +2,10 @@
 
 import { createServerSupabaseClient } from "../lib/supabase/server";
 import { Bill } from "../type/index.bills";
+import {
+  createBillCreatedNotification,
+  createBillPaidNotification,
+} from "./notifications";
 
 export const CreateBillsAction = async (bills: Bill) => {
   try {
@@ -24,6 +28,14 @@ export const CreateBillsAction = async (bills: Bill) => {
         message: error.message,
       };
     }
+
+    const createdBill = data[0];
+
+    await createBillCreatedNotification(
+      userData.user?.id!,
+      createdBill.title,
+      createdBill.id
+    );
 
     // revalidatePath("/Billss");
 
@@ -132,19 +144,29 @@ export const GetAllBillsAction = async () => {
 
 export const BillMarkPaid = async (id: string) => {
   const supabase = await createServerSupabaseClient();
+  const { data: authData } = await supabase.auth.getUser();
 
   const { data, error } = await supabase
     .from("bills")
-    .update({ status: "paid" as const }) // only update the status
-    .eq("id", id);
+    .update({ status: "paid" })
+    .eq("id", id)
+    .select()
+    .single(); // cleaner + safer
 
   if (error) {
     console.error("Error updating bill:", error);
-    return;
+    return {
+      success: false,
+      message: error.message,
+    };
   }
+
+  // Send bill paid notification
+  await createBillPaidNotification(authData.user?.id!, data.title, data.id);
+
   return {
     success: true,
-    message: "paid 🥳",
+    message: "Bill marked as paid 🎉",
     data,
   };
 };

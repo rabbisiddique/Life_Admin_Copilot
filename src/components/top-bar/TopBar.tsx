@@ -14,70 +14,18 @@ import { ChevronDown, LogOut, Moon, Settings, Sun, User } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useAuth } from "../../../hooks/useAuth";
 import { createClient } from "../../../lib/supabase/client";
 import NotificationDropdown from "./NofificationDropDown";
-
-interface Notification {
-  id: number;
-  title: string;
-  message: string;
-  type: "bill" | "success" | "warning" | "info";
-  unread: boolean;
-  time: string;
-  link?: string; // optional URL or route
-}
-
-const dummyNotifications: Notification[] = [
-  {
-    id: 1,
-    title: "Netflix Bill Due",
-    message: "Your Netflix subscription is due tomorrow",
-    time: "2 hours ago",
-    type: "bill",
-    unread: true,
-    link: "/bills",
-  },
-  {
-    id: 2,
-    title: "Habit Completed",
-    message: "You finished your morning workout",
-    time: "3 hours ago",
-    type: "success",
-    unread: true,
-    link: "/habits",
-  },
-  {
-    id: 3,
-    title: "Document Expiring",
-    message: "Your license expires in 15 days",
-    time: "5 hours ago",
-    type: "warning",
-    unread: false,
-    link: "/documents",
-  },
-  {
-    id: 4,
-    title: "New Task Assigned",
-    message: "Complete quarterly report by Friday",
-    time: "1 day ago",
-    type: "info",
-    unread: false,
-    link: "/tasks",
-  },
-];
 
 export function TopBar() {
   const [mounted, setMounted] = useState(false);
   const { theme, setTheme } = useTheme();
-  const [notifications, setNotifications] = useState(dummyNotifications);
+  const { user } = useAuth();
   const router = useRouter();
   const supabase = createClient();
 
   useEffect(() => setMounted(true), []);
-
-  const markAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
-  };
 
   const handleSignOut = async () => {
     try {
@@ -86,11 +34,14 @@ export function TopBar() {
         console.log(error.message);
       }
       router.push("/auth/login");
-      // console.log(data);
     } catch (error) {
       console.log(error);
       console.log("error in signout");
     }
+  };
+
+  const handleNavigate = (path: string) => {
+    router.push(path);
   };
 
   return (
@@ -98,10 +49,8 @@ export function TopBar() {
       <div className="flex items-center flex-1">{/* Optional search */}</div>
 
       <div className="flex items-center gap-2">
-        <NotificationDropdown
-          notifications={notifications}
-          markAllAsRead={markAllAsRead}
-        />
+        {/* Notification Dropdown - self-contained */}
+        <NotificationDropdown />
 
         {mounted && (
           <motion.button
@@ -124,17 +73,19 @@ export function TopBar() {
           <DropdownMenuTrigger asChild>
             <motion.button className="flex items-center gap-2 rounded-xl p-1 pr-3 hover:bg-accent transition-colors">
               <Avatar className="h-9 w-9 ring-2 ring-primary/20">
-                <AvatarImage src="/avatar.png" />
+                <AvatarImage src={user?.user_metadata?.avatar_url} />
                 <AvatarFallback className="bg-gradient-to-br from-primary to-primary/70 text-primary-foreground font-bold">
-                  SD
+                  {user?.user_metadata?.first_name?.[0]?.toUpperCase() ||
+                    user?.email?.[0]?.toUpperCase() ||
+                    "U"}
                 </AvatarFallback>
               </Avatar>
               <div className="hidden md:flex flex-col items-start">
                 <span className="text-sm font-semibold leading-none">
-                  Sam Doe
+                  {user?.user_metadata?.first_name || "User"}
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  sam@example.com
+                  {user?.email}
                 </span>
               </div>
               <ChevronDown className="h-4 w-4 text-muted-foreground hidden md:block" />
@@ -144,16 +95,24 @@ export function TopBar() {
           <DropdownMenuContent className="w-56" align="end">
             <DropdownMenuLabel>
               <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium">Sam Doe</p>
-                <p className="text-xs text-muted-foreground">sam@example.com</p>
+                <p className="text-sm font-medium">
+                  {user?.user_metadata?.first_name || "User"}
+                </p>
+                <p className="text-xs text-muted-foreground">{user?.email}</p>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
 
-            <DropdownMenuItem className="cursor-pointer">
+            <DropdownMenuItem
+              className="cursor-pointer"
+              onClick={() => handleNavigate("/dashboard/profile")}
+            >
               <User className="w-4 h-4 mr-2" /> Profile
             </DropdownMenuItem>
-            <DropdownMenuItem className="cursor-pointer">
+            <DropdownMenuItem
+              className="cursor-pointer"
+              onClick={() => handleNavigate("/dashboard/settings")}
+            >
               <Settings className="w-4 h-4 mr-2" /> Settings
             </DropdownMenuItem>
             <DropdownMenuSeparator />
