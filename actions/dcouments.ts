@@ -87,47 +87,6 @@ Rules:
 
 // ==================== FILE UPLOAD ====================
 
-export async function uploadFileToStorage(
-  base64Data: string,
-  fileName: string,
-  fileType: string
-) {
-  try {
-    const supabase = createClient();
-
-    // Convert base64 to buffer
-    const buffer = Buffer.from(base64Data, "base64");
-    const filePath = `${Date.now()}_${fileName}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from("documents")
-      .upload(filePath, buffer, {
-        cacheControl: "3600",
-        contentType: fileType || "application/pdf",
-      });
-
-    if (uploadError) throw uploadError;
-
-    const { data } = supabase.storage.from("documents").getPublicUrl(filePath);
-
-    return {
-      success: true,
-      data: {
-        filePath,
-        fileUrl: data.publicUrl,
-      },
-      error: null,
-    };
-  } catch (error) {
-    console.error("File upload error:", error);
-    return {
-      success: false,
-      data: null,
-      error: error instanceof Error ? error.message : "Failed to upload file",
-    };
-  }
-}
-
 // ==================== DOCUMENT CRUD ====================
 
 export async function fetchDocuments() {

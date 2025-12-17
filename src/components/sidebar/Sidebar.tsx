@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Activity,
-  BarChart3,
   CheckSquare,
   ChevronRight,
   CreditCard,
@@ -25,7 +24,6 @@ const navigation = [
   { name: "Habits", href: "/habits", icon: Activity },
   { name: "Bills", href: "/bills", icon: CreditCard },
   { name: "Documents", href: "/documents", icon: FileText },
-  { name: "Analytics", href: "/analytics", icon: BarChart3 },
   { name: "Settings", href: "/profile", icon: Settings },
 ];
 

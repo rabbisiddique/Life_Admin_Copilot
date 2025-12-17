@@ -54,6 +54,7 @@ import {
   createRenewNotification,
 } from "../../../actions/notifications";
 import { createClient } from "../../../lib/supabase/client";
+import { uploadFile } from "../../../lib/uploadFile";
 import { Document } from "../../../type/index.documents";
 import Spinner from "../Spinner/Spinner";
 
@@ -133,6 +134,7 @@ export default function DocumentScanner() {
       setIsLoading(false);
     }
   };
+
   useEffect(() => {
     fetchDocuments();
   }, []);
@@ -225,34 +227,6 @@ export default function DocumentScanner() {
   };
 
   // Upload file to Supabase Storage
-  const uploadFile = async (file: File): Promise<string | null> => {
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
-
-      const filePath = `${user.id}/${Date.now()}_${file.name}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("documents")
-        .upload(filePath, file, {
-          cacheControl: "3600",
-          upsert: false,
-        });
-
-      if (uploadError) throw uploadError;
-
-      const { data } = supabase.storage
-        .from("documents")
-        .getPublicUrl(filePath);
-
-      return data.publicUrl;
-    } catch (err) {
-      console.error("Upload failed:", err);
-      throw err;
-    }
-  };
 
   // Handle file selection
   const handleFileSelect = async (file: File) => {

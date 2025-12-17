@@ -65,6 +65,7 @@ import {
 import { createBillPaidNotification } from "../../../actions/notifications";
 import { useAuth } from "../../../hooks/useAuth";
 import { useBillNotifications } from "../../../hooks/useBillNotifications";
+import { useKpis } from "../../../hooks/useKips";
 import { createClient } from "../../../lib/supabase/client";
 import { Bill } from "../../../type/index.bills";
 import Spinner from "../Spinner/Spinner";
@@ -130,37 +131,7 @@ export default function BillList() {
   });
 
   // Calculate KPIs
-  const kpis = useMemo(() => {
-    const currentMonth = new Date().getMonth();
-    const currentYear = new Date().getFullYear();
-
-    const thisMonthBills = bills.filter((bill) => {
-      const billDate = new Date(bill.due_date);
-      return (
-        billDate.getMonth() === currentMonth &&
-        billDate.getFullYear() === currentYear
-      );
-    });
-
-    const totalAmount = thisMonthBills.reduce(
-      (sum, bill) => sum + bill.amount,
-      0
-    );
-    const paidCount = thisMonthBills.filter((b) => b.status === "paid").length;
-    const unpaidCount = thisMonthBills.filter(
-      (b) => b.status !== "paid"
-    ).length;
-
-    const upcomingBills = bills
-      .filter((b) => b.status !== "paid" && new Date(b.due_date) >= new Date())
-      .sort(
-        (a, b) =>
-          new Date(a.due_date).getTime() - new Date(b.due_date).getTime()
-      )
-      .slice(0, 3);
-
-    return { totalAmount, paidCount, unpaidCount, upcomingBills };
-  }, [bills]);
+  const { totalAmount, paidCount, unpaidCount, upcomingBills } = useKpis(bills);
 
   // Filtered bills
   const filteredBills = useMemo(() => {
@@ -427,10 +398,10 @@ export default function BillList() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl sm:text-3xl font-bold text-primary">
-                ${kpis.totalAmount.toFixed(2)}
+                ${totalAmount.toFixed(2)}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                {kpis.paidCount} bills
+                {paidCount} bills
               </p>
             </CardContent>
           </Card>
@@ -446,7 +417,7 @@ export default function BillList() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl sm:text-3xl font-bold text-emerald-600 dark:text-emerald-400">
-                {kpis.paidCount}
+                {paidCount}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
                 Completed payments
@@ -465,7 +436,7 @@ export default function BillList() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl sm:text-3xl font-bold text-amber-600 dark:text-amber-400">
-                {kpis.unpaidCount}
+                {unpaidCount}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
                 Pending payments
@@ -483,8 +454,8 @@ export default function BillList() {
               </div>
             </CardHeader>
             <CardContent className="space-y-2">
-              {kpis.upcomingBills.length > 0 ? (
-                kpis.upcomingBills.map((bill) => (
+              {upcomingBills.length > 0 ? (
+                upcomingBills.map((bill) => (
                   <div
                     key={bill.id}
                     className="flex justify-between items-center"

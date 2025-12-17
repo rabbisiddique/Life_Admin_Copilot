@@ -2,47 +2,33 @@
 
 import { createClient } from "./supabase/client";
 
-export async function uploadFile(
-  file: File,
-  folder: string = "documents"
-): Promise<{ url: string; path: string } | null> {
+export const uploadFile = async (file: File): Promise<string | null> => {
   const supabase = createClient();
-
   try {
-    // Generate unique filename
-    const timestamp = Date.now();
-    const random = Math.random().toString(36).substring(7);
-    const extension = file.name.split(".").pop();
-    const filePath = `${folder}/${timestamp}-${random}.${extension}`;
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) throw new Error("Not authenticated");
 
-    // Upload file
-    const { data, error } = await supabase.storage
+    const filePath = `${user.id}/${Date.now()}_${file.name}`;
+
+    const { error: uploadError } = await supabase.storage
       .from("documents")
       .upload(filePath, file, {
         cacheControl: "3600",
         upsert: false,
-        contentType: file.type || "application/octet-stream",
       });
 
-    if (error) {
-      console.error("Upload error:", error);
-      throw error;
-    }
+    if (uploadError) throw uploadError;
 
-    // Get public URL
-    const { data: urlData } = supabase.storage
-      .from("documents")
-      .getPublicUrl(filePath);
+    const { data } = supabase.storage.from("documents").getPublicUrl(filePath);
 
-    return {
-      url: urlData.publicUrl,
-      path: filePath,
-    };
+    return data.publicUrl;
   } catch (err) {
     console.error("Upload failed:", err);
     throw err;
   }
-}
+};
 
 export async function uploadAvatar(file: File, userId: string) {
   const supabase = createClient();
