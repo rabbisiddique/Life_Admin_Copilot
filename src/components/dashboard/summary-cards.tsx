@@ -296,7 +296,7 @@ export function SummaryCards() {
                                     : "text-orange-700 dark:text-orange-400"
                                 }`}
                               >
-                                {doc.name}
+                                {doc.title}
                               </p>
                               <p
                                 className={`text-xs ${
