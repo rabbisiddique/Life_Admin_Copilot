@@ -7,6 +7,7 @@ type ProfileData = {
   location: string;
   email: string;
 };
+
 export const updateUserProfile = async (
   profileData: ProfileData,
   userId: string

@@ -1,8 +1,8 @@
 "use client";
-
-import { supabase } from "./supabase";
+import { createServerSupabaseClient } from "./supabase/server";
 
 export const updatePassword = async (newPassword: string) => {
+  const supabase = await createServerSupabaseClient();
   try {
     const { data, error } = await supabase.auth.updateUser({
       password: newPassword,
