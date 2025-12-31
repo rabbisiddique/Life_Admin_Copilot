@@ -1,4 +1,4 @@
-"use client";
+"use server";
 import { createServerSupabaseClient } from "./supabase/server";
 
 export const updatePassword = async (newPassword: string) => {

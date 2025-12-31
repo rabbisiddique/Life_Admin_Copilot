@@ -51,7 +51,7 @@ const LoginPage = () => {
     },
   });
 
-  const handleLogin = async (data) => {
+  const handleLogin = async (data: z.infer<typeof loginSchema>) => {
     setIsLoading(true);
     try {
       const res = await SignIn(data);
