@@ -1,12 +1,7 @@
 "use server";
 
 import { createServerActionClient } from "../lib/supabase/server-action";
-type ProfileData = {
-  first_name: string;
-  last_name: string;
-  location: string;
-  email: string;
-};
+import { ProfileData } from "../type/index.profile";
 
 export const updateUserProfile = async (
   profileData: ProfileData,
@@ -55,9 +50,7 @@ export const updateUserProfile = async (
 
     return {
       success: true,
-      message: profileData.email
-        ? "Profile updated! Please check your new email for a confirmation link."
-        : "Profile Updated Successfully",
+      message: "Profile Updated Successfully",
       data,
       authData,
     };
