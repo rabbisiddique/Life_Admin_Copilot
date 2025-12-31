@@ -9,7 +9,18 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer";
 import {
   Form,
   FormControl,
@@ -19,6 +30,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -46,10 +58,12 @@ import {
   DollarSign,
   Edit2,
   FileText,
+  Filter,
   Home,
   Plus,
   Search,
   Trash2,
+  X,
   Zap,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -68,8 +82,8 @@ import { useBillNotifications } from "../../../hooks/useBillNotifications";
 import { useKpis } from "../../../hooks/useKips";
 import { createClient } from "../../../lib/supabase/client";
 import { Bill } from "../../../type/index.bills";
-import Spinner from "../Spinner/Spinner";
 import BillsChart from "../charts/BillsChart";
+import Spinner from "../Spinner/Spinner";
 
 // Register Chart.js components
 ChartJS.register(
@@ -81,6 +95,7 @@ ChartJS.register(
   Tooltip,
   Legend
 );
+
 // Zod Schema
 export const billSchema = z.object({
   title: z.string().min(1, "Bill name is required"),
@@ -106,6 +121,179 @@ const categoryIcons = {
   other: DollarSign,
 };
 
+// Hook to detect mobile screens
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  return isMobile;
+}
+
+// Bill Form Component (reusable for both Dialog and Drawer)
+function BillForm({
+  form,
+  onSubmit,
+  isCreating,
+  editingBill,
+}: {
+  form: any;
+  onSubmit: (data: BillFormData) => void;
+  isCreating: boolean;
+  editingBill: Bill | null;
+}) {
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <FormField
+          control={form.control}
+          name="title"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Bill Name</FormLabel>
+              <FormControl>
+                <Input
+                  placeholder="e.g., Netflix"
+                  {...field}
+                  className="h-11"
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="amount"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Amount</FormLabel>
+              <FormControl>
+                <Input
+                  type="number"
+                  step="0.01"
+                  placeholder="0.00"
+                  {...field}
+                  className="h-11"
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="category"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Category</FormLabel>
+              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <FormControl>
+                  <SelectTrigger className="h-11">
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="subscription">Subscription</SelectItem>
+                  <SelectItem value="utility">Utility</SelectItem>
+                  <SelectItem value="rent">Rent</SelectItem>
+                  <SelectItem value="insurance">Insurance</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="due_date"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Due Date</FormLabel>
+              <FormControl>
+                <Input type="datetime-local" {...field} className="h-11" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="recurrence"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Recurrence</FormLabel>
+              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <FormControl>
+                  <SelectTrigger className="h-11">
+                    <SelectValue />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="monthly">Monthly</SelectItem>
+                  <SelectItem value="yearly">Yearly</SelectItem>
+                  <SelectItem value="one-time">One-time</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="status"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Status</FormLabel>
+              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <FormControl>
+                  <SelectTrigger className="h-11">
+                    <SelectValue />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="paid">Paid</SelectItem>
+                  <SelectItem value="overdue">Overdue</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <Button
+          type="submit"
+          className="w-full h-11 bg-primary hover:bg-primary/90 text-primary-foreground"
+          disabled={isCreating}
+        >
+          {isCreating
+            ? editingBill
+              ? "Updating..."
+              : "Creating..."
+            : editingBill
+            ? "Update Bill"
+            : "Add Bill"}
+        </Button>
+      </form>
+    </Form>
+  );
+}
+
 export default function BillList() {
   const [bills, setBills] = useState<Bill[]>([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -115,8 +303,11 @@ export default function BillList() {
   const [editingBill, setEditingBill] = useState<Bill | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
   const supabase = createClient();
   const { user } = useAuth();
+  const isMobile = useIsMobile();
+
   // React Hook Form with Zod
   const form = useForm<BillFormData>({
     resolver: zodResolver(billSchema),
@@ -190,9 +381,7 @@ export default function BillList() {
     loadBills();
   }, []);
 
-  // 2. Then set up real-time subscription (runs after initial load)
   useEffect(() => {
-    // Don't set up real-time until we have initial data
     if (bills.length === 0 && isLoading) return;
 
     const channel = supabase
@@ -201,9 +390,6 @@ export default function BillList() {
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "bills" },
         (payload) => {
-          console.log("Realtime UPDATE payload:", payload);
-
-          // Use payload.new directly - it contains the updated bill
           setBills((prev) =>
             prev.map((b) =>
               b.id === payload.new.id ? (payload.new as Bill) : b
@@ -215,7 +401,6 @@ export default function BillList() {
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "bills" },
         (payload) => {
-          console.log("Realtime INSERT payload:", payload);
           setBills((prev) => [payload.new as Bill, ...prev]);
         }
       )
@@ -223,32 +408,22 @@ export default function BillList() {
         "postgres_changes",
         { event: "DELETE", schema: "public", table: "bills" },
         (payload) => {
-          console.log("Realtime DELETE payload:", payload);
           setBills((prev) => prev.filter((b) => b.id !== payload.old.id));
         }
       )
-      .subscribe((status) => {
-        console.log("Channel subscription status:", status);
-        if (status === "SUBSCRIBED") {
-          console.log("Successfully subscribed to bills changes");
-        }
-      });
+      .subscribe();
 
     return () => {
-      console.log("Cleaning up real-time subscription");
       supabase.removeChannel(channel);
     };
-  }, [isLoading]); // Only re-subscribe if loading state changes
+  }, [isLoading]);
 
-  // 3. Fixed handleMarkPaid function
   const handleMarkPaid = async (id: string) => {
     try {
-      // Optimistically update UI first for better UX
       setBills((prev) =>
         prev.map((b) => (b.id === id ? { ...b, status: "paid" as const } : b))
       );
 
-      // Call API to update bill
       const { data: updatedBill, error } = await supabase
         .from("bills")
         .update({ status: "paid" })
@@ -256,26 +431,20 @@ export default function BillList() {
         .select()
         .single();
 
-      if (error) {
-        // Revert optimistic update on error
-        throw error;
-      }
+      if (error) throw error;
+
       await createBillPaidNotification(
         user?.id!,
         updatedBill.title,
         updatedBill.id
       );
-      // Real-time will handle the update, but we already updated optimistically
       toast.success("Bill marked as paid!");
     } catch (err: any) {
       console.error("Error marking bill as paid:", err);
-
-      // Revert the optimistic update
       const res = await GetAllBillsAction();
       if (res.success) {
         setBills(res?.data!);
       }
-
       toast.error(err.message || "Failed to mark bill as paid");
     }
   };
@@ -288,6 +457,12 @@ export default function BillList() {
 
   const handleEdit = (bill: Bill) => {
     setEditingBill(bill);
+    setIsAddModalOpen(true);
+  };
+
+  const handleAdd = () => {
+    setEditingBill(null);
+    form.reset();
     setIsAddModalOpen(true);
   };
 
@@ -343,488 +518,498 @@ export default function BillList() {
   useBillNotifications(bills, user?.id!);
 
   if (isLoading) {
-    return (
-      <>
-        <Spinner title={"Loading bills..."} />
-      </>
-    );
+    return <Spinner title={"Loading bills..."} />;
   }
 
-  return (
-    <>
-      {/* Header */}
-      <header className="border-b border-border bg-card/80 backdrop-blur-lg">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 sm:p-3 rounded-xl bg-primary shadow-lg shadow-primary/30">
-                <DollarSign className="w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground" />
-              </div>
-              <div>
-                <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-primary">
-                  Bills Dashboard
-                </h1>
-                <p className="text-xs sm:text-sm text-muted-foreground">
-                  Manage your finances efficiently
-                </p>
-              </div>
-            </div>
-            <Button
-              onClick={() => {
-                form.reset();
-                setEditingBill(null);
-                setIsAddModalOpen(true);
-              }}
-              className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/30"
-            >
-              <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline">Add Bill</span>
-            </Button>
+  const BillFormModal = isMobile ? (
+    <Drawer open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
+      <DrawerTrigger asChild>
+        <Button size="default" onClick={handleAdd} className="h-11 gap-2">
+          <Plus className="w-4 h-4" />
+          <span className="hidden sm:inline">Add Bill</span>
+        </Button>
+      </DrawerTrigger>
+      <DrawerContent>
+        <div className="mx-auto w-full max-w-sm">
+          <DrawerHeader>
+            <DrawerTitle>
+              {editingBill ? "Edit Bill" : "Add New Bill"}
+            </DrawerTitle>
+            <DrawerDescription>
+              {editingBill
+                ? "Update bill information"
+                : "Enter the details of your new bill"}
+            </DrawerDescription>
+          </DrawerHeader>
+          <div className="px-4">
+            <BillForm
+              form={form}
+              onSubmit={onSubmit}
+              isCreating={isCreating}
+              editingBill={editingBill}
+            />
           </div>
+          <DrawerFooter className="mt-[-6px]">
+            <DrawerClose asChild>
+              <Button variant="outline" className="h-11">
+                Cancel
+              </Button>
+            </DrawerClose>
+          </DrawerFooter>
         </div>
-      </header>
+      </DrawerContent>
+    </Drawer>
+  ) : (
+    <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" onClick={handleAdd} className="gap-2">
+          <Plus className="w-4 h-4" />
+          Add Bill
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>
+            {editingBill ? "Edit Bill" : "Add New Bill"}
+          </DialogTitle>
+          <DialogDescription>
+            {editingBill
+              ? "Update bill information"
+              : "Enter the details of your new bill"}
+          </DialogDescription>
+        </DialogHeader>
+        <BillForm
+          form={form}
+          onSubmit={onSubmit}
+          isCreating={isCreating}
+          editingBill={editingBill}
+        />
+      </DialogContent>
+    </Dialog>
+  );
 
-      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-12">
-        {/* KPI Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
-          <Card className="border-border bg-card hover:shadow-xl hover:shadow-primary/10 transition-all duration-300 hover:-translate-y-1">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Total This Month
-              </CardTitle>
-              <div className="p-2 rounded-lg bg-primary/10">
-                <DollarSign className="w-4 h-4 text-primary" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl sm:text-3xl font-bold text-primary">
-                ${totalAmount.toFixed(2)}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {paidCount} bills
-              </p>
-            </CardContent>
-          </Card>
+  const activeFilters = [
+    filterCategory !== "all" && "category",
+    filterStatus !== "all" && "status",
+  ].filter(Boolean).length;
 
-          <Card className="border-border bg-card hover:shadow-xl hover:shadow-emerald-500/10 transition-all duration-300 hover:-translate-y-1">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Paid Bills
-              </CardTitle>
-              <div className="p-2 rounded-lg bg-emerald-500/10">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl sm:text-3xl font-bold text-emerald-600 dark:text-emerald-400">
-                {paidCount}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Completed payments
-              </p>
-            </CardContent>
-          </Card>
+  return (
+    <div className="space-y-4 sm:space-y-6 sm:p-4 md:p-6 mx-auto max-w-7xl w-full overflow-x-hidden">
+      {/* Page Header */}
+      <div className="space-y-1">
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+          Bills Dashboard
+        </h1>
+        <p className="text-muted-foreground text-sm sm:text-base">
+          Manage your finances efficiently
+        </p>
+      </div>
 
-          <Card className="border-border bg-card hover:shadow-xl hover:shadow-amber-500/10 transition-all duration-300 hover:-translate-y-1">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Unpaid Bills
-              </CardTitle>
-              <div className="p-2 rounded-lg bg-amber-500/10">
-                <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl sm:text-3xl font-bold text-amber-600 dark:text-amber-400">
-                {unpaidCount}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Pending payments
-              </p>
-            </CardContent>
-          </Card>
+      {/* KPI Cards - Responsive Grid */}
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
+        <Card className="border-border bg-card hover:shadow-xl hover:shadow-primary/10 transition-all duration-300 hover:-translate-y-1">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Total This Month
+            </CardTitle>
+            <div className="p-2 rounded-lg bg-primary/10">
+              <DollarSign className="w-4 h-4 text-primary" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl sm:text-3xl font-bold text-primary">
+              ${totalAmount.toFixed(2)}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {paidCount} bills
+            </p>
+          </CardContent>
+        </Card>
 
-          <Card className="border-border bg-card hover:shadow-xl hover:shadow-primary/10 transition-all duration-300 hover:-translate-y-1">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Next Due
-              </CardTitle>
-              <div className="p-2 rounded-lg bg-primary/10">
-                <Calendar className="w-4 h-4 text-primary" />
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {upcomingBills.length > 0 ? (
-                upcomingBills.map((bill) => (
-                  <div
-                    key={bill.id}
-                    className="flex justify-between items-center"
-                  >
-                    <span className="text-sm font-medium text-foreground truncate">
-                      {bill.title}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {new Date(bill.due_date).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                      })}
-                    </span>
-                  </div>
-                ))
-              ) : (
-                <div className="text-sm text-muted-foreground">
-                  No upcoming bills
+        <Card className="border-border bg-card hover:shadow-xl hover:shadow-emerald-500/10 transition-all duration-300 hover:-translate-y-1">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Paid Bills
+            </CardTitle>
+            <div className="p-2 rounded-lg bg-emerald-500/10">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl sm:text-3xl font-bold text-emerald-600 dark:text-emerald-400">
+              {paidCount}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Completed payments
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border bg-card hover:shadow-xl hover:shadow-amber-500/10 transition-all duration-300 hover:-translate-y-1">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Unpaid Bills
+            </CardTitle>
+            <div className="p-2 rounded-lg bg-amber-500/10">
+              <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl sm:text-3xl font-bold text-amber-600 dark:text-amber-400">
+              {unpaidCount}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Pending payments
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border bg-card hover:shadow-xl hover:shadow-primary/10 transition-all duration-300 hover:-translate-y-1">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Next Due
+            </CardTitle>
+            <div className="p-2 rounded-lg bg-primary/10">
+              <Calendar className="w-4 h-4 text-primary" />
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {upcomingBills.length > 0 ? (
+              upcomingBills.map((bill) => (
+                <div
+                  key={bill.id}
+                  className="flex justify-between items-center"
+                >
+                  <span className="text-sm font-medium text-foreground truncate">
+                    {bill.title}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {new Date(bill.due_date).toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  </span>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+              ))
+            ) : (
+              <div className="text-sm text-muted-foreground">
+                No upcoming bills
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
-        {/* Filters and Search */}
-        <Card className="mb-6 border-border bg-card">
-          <CardContent className="pt-4 sm:pt-6">
-            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+      {/* Bills List */}
+      <Card>
+        <CardHeader className="p-4 sm:p-6">
+          <div className="space-y-4">
+            {/* Title and Description */}
+            <div>
+              <CardTitle className="text-lg sm:text-xl">Your Bills</CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">
+                Track and manage all your payments
+              </p>
+            </div>
+
+            {/* Search and Actions - Mobile Optimized */}
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+              {/* Search Bar */}
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Search bills..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 border-input focus:border-ring focus:ring-ring"
+                  className="pl-9 h-11 md:h-10"
                 />
+                {searchQuery && (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
+                    onClick={() => setSearchQuery("")}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
-              <Select value={filterCategory} onValueChange={setFilterCategory}>
-                <SelectTrigger className="w-full sm:w-48">
-                  <SelectValue placeholder="Category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
-                  <SelectItem value="subscription">Subscription</SelectItem>
-                  <SelectItem value="utility">Utility</SelectItem>
-                  <SelectItem value="rent">Rent</SelectItem>
-                  <SelectItem value="insurance">Insurance</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <SelectTrigger className="w-full sm:w-48">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="paid">Paid</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="overdue">Overdue</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
 
-        {/* Bills Grid */}
-        {filteredBills.length === 0 ? (
-          <Card className="border-dashed border-2 border-border bg-card/50">
-            <CardContent className="flex flex-col items-center justify-center py-12 sm:py-16">
-              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                <FileText className="w-8 h-8 sm:w-10 sm:h-10 text-primary" />
+              {/* Filter and Add Button */}
+              <div className="flex gap-2">
+                {/* Mobile: Filter Toggle Button */}
+                <Button
+                  variant="outline"
+                  size="default"
+                  onClick={() => setShowFilters(!showFilters)}
+                  className="sm:hidden h-11 flex-1"
+                >
+                  <Filter className="mr-2 h-4 w-4" />
+                  Filter
+                  {activeFilters > 0 && (
+                    <span className="ml-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
+                      {activeFilters}
+                    </span>
+                  )}
+                </Button>
+
+                {/* Desktop: Filter Dropdowns */}
+                <div className="hidden sm:flex gap-2">
+                  <Select
+                    value={filterCategory}
+                    onValueChange={setFilterCategory}
+                  >
+                    <SelectTrigger className="w-[140px] h-10">
+                      <SelectValue placeholder="Category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Categories</SelectItem>
+                      <SelectItem value="subscription">Subscription</SelectItem>
+                      <SelectItem value="utility">Utility</SelectItem>
+                      <SelectItem value="rent">Rent</SelectItem>
+                      <SelectItem value="insurance">Insurance</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={filterStatus} onValueChange={setFilterStatus}>
+                    <SelectTrigger className="w-[140px] h-10">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="paid">Paid</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="overdue">Overdue</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {BillFormModal}
               </div>
-              <h3 className="text-lg sm:text-xl font-semibold mb-2 text-foreground">
-                No bills found
-              </h3>
-              <p className="text-muted-foreground text-center mb-6 max-w-sm text-sm sm:text-base px-4">
-                {searchQuery ||
-                filterCategory !== "all" ||
-                filterStatus !== "all"
-                  ? "Try adjusting your filters or search query"
-                  : "Get started by adding your first bill to track your expenses"}
-              </p>
-              <Button
-                onClick={() => setIsAddModalOpen(true)}
-                className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground"
-              >
-                <Plus className="w-4 h-4" />
-                Add Your First Bill
-              </Button>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            {filteredBills.map((bill) => (
-              <Card
-                key={bill.id}
-                className="border-border bg-card hover:shadow-xl transition-all duration-300 hover:-translate-y-1 overflow-hidden"
-              >
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 min-w-0">
-                      <CardTitle className="text-lg font-semibold text-foreground truncate">
-                        {bill.title}
-                      </CardTitle>
-                      <div className="flex items-center gap-2 mt-2">
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                          {getCategoryIcon(bill.category)}
-                          <span className="capitalize">{bill.category}</span>
+            </div>
+
+            {/* Mobile Filter Panel */}
+            {showFilters && isMobile && (
+              <Card className="p-4 border-2">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-semibold">Filters</Label>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowFilters(false)}
+                      className="h-8 w-8 p-0"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="space-y-3">
+                    <div>
+                      <Label className="text-xs text-muted-foreground mb-1.5 block">
+                        Category
+                      </Label>
+                      <Select
+                        value={filterCategory}
+                        onValueChange={setFilterCategory}
+                      >
+                        <SelectTrigger className="h-11">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Categories</SelectItem>
+                          <SelectItem value="subscription">
+                            Subscription
+                          </SelectItem>
+                          <SelectItem value="utility">Utility</SelectItem>
+                          <SelectItem value="rent">Rent</SelectItem>
+                          <SelectItem value="insurance">Insurance</SelectItem>
+                          <SelectItem value="other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground mb-1.5 block">
+                        Status
+                      </Label>
+                      <Select
+                        value={filterStatus}
+                        onValueChange={setFilterStatus}
+                      >
+                        <SelectTrigger className="h-11">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Status</SelectItem>
+                          <SelectItem value="paid">Paid</SelectItem>
+                          <SelectItem value="pending">Pending</SelectItem>
+                          <SelectItem value="overdue">Overdue</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  {activeFilters > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setFilterCategory("all");
+                        setFilterStatus("all");
+                        setShowFilters(false);
+                      }}
+                      className="w-full"
+                    >
+                      Clear Filters
+                    </Button>
+                  )}
+                </div>
+              </Card>
+            )}
+          </div>
+        </CardHeader>
+
+        <CardContent className="p-3 sm:p-6 pt-0">
+          {/* Bills Grid */}
+          {filteredBills.length === 0 ? (
+            <div className="text-center py-12 sm:py-16 text-muted-foreground px-4">
+              <div className="flex flex-col items-center gap-2">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                  <FileText className="w-8 h-8 sm:w-10 sm:h-10 text-primary" />
+                </div>
+                <h3 className="text-lg sm:text-xl font-semibold mb-2 text-foreground">
+                  No bills found
+                </h3>
+                <p className="text-sm sm:text-base">
+                  {searchQuery || activeFilters > 0
+                    ? "Try adjusting your filters or search query"
+                    : "Get started by adding your first bill"}
+                </p>
+                {(searchQuery || activeFilters > 0) && (
+                  <Button
+                    variant="link"
+                    onClick={() => {
+                      setSearchQuery("");
+                      setFilterCategory("all");
+                      setFilterStatus("all");
+                    }}
+                    className="text-sm mt-2"
+                  >
+                    Clear filters
+                  </Button>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+              {filteredBills.map((bill) => (
+                <Card
+                  key={bill.id}
+                  className="border-border bg-card hover:shadow-xl transition-all duration-300 hover:-translate-y-1 overflow-hidden"
+                >
+                  <CardHeader className="pb-3 p-3 sm:p-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 min-w-0">
+                        <CardTitle className="text-base sm:text-lg font-semibold text-foreground truncate">
+                          {bill.title}
+                        </CardTitle>
+                        <div className="flex items-center gap-2 mt-2">
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            {getCategoryIcon(bill.category)}
+                            <span className="capitalize">{bill.category}</span>
+                          </div>
                         </div>
                       </div>
+                      <Badge
+                        variant="outline"
+                        className={`${getStatusColor(
+                          bill.status
+                        )} ml-2 shrink-0 text-xs`}
+                      >
+                        {bill.status === "paid" && (
+                          <CheckCircle2 className="w-3 h-3 mr-1" />
+                        )}
+                        {bill.status === "overdue" && (
+                          <AlertCircle className="w-3 h-3 mr-1" />
+                        )}
+                        {bill.status === "pending" && (
+                          <Clock className="w-3 h-3 mr-1" />
+                        )}
+                        <span className="hidden sm:inline">
+                          {bill.status.charAt(0).toUpperCase() +
+                            bill.status.slice(1)}
+                        </span>
+                      </Badge>
                     </div>
-                    <Badge
-                      variant="outline"
-                      className={`${getStatusColor(bill.status)} ml-2 shrink-0`}
-                    >
-                      {bill.status === "paid" && (
-                        <CheckCircle2 className="w-3 h-3 mr-1" />
-                      )}
-                      {bill.status === "overdue" && (
-                        <AlertCircle className="w-3 h-3 mr-1" />
-                      )}
-                      {bill.status === "pending" && (
-                        <Clock className="w-3 h-3 mr-1" />
-                      )}
-                      {bill.status.charAt(0).toUpperCase() +
-                        bill.status.slice(1)}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">
-                        Amount
-                      </span>
-                      <span className="text-2xl font-bold text-primary">
-                        ${bill.amount.toFixed(2)}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">
-                        Due Date
-                      </span>
-                      <span className="text-sm font-medium text-foreground">
-                        {new Date(bill.due_date).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between pt-3 border-t border-border">
-                      <span className="text-xs text-muted-foreground capitalize">
-                        {bill.recurrence} payment
-                      </span>
-                      <div className="flex items-center gap-1">
-                        {bill.status !== "paid" && (
+                  </CardHeader>
+                  <CardContent className="p-3 sm:p-4 pt-0">
+                    <div className="space-y-2 sm:space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">
+                          Amount
+                        </span>
+                        <span className="text-xl sm:text-2xl font-bold text-primary">
+                          ${bill.amount.toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">
+                          Due Date
+                        </span>
+                        <span className="text-sm font-medium text-foreground">
+                          {new Date(bill.due_date).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between pt-2 sm:pt-3 border-t border-border">
+                        <span className="text-xs text-muted-foreground capitalize">
+                          {bill.recurrence} payment
+                        </span>
+                        <div className="flex items-center gap-1">
+                          {bill.status !== "paid" && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleMarkPaid(bill.id)}
+                              className="h-8 w-8 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10"
+                              title="Mark as paid"
+                            >
+                              <CheckCircle2 className="w-4 h-4" />
+                            </Button>
+                          )}
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => handleMarkPaid(bill.id)}
-                            className="h-8 w-8 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10"
-                            title="Mark as paid"
+                            onClick={() => handleEdit(bill)}
+                            className="h-8 w-8 p-0 hover:bg-accent hover:text-accent-foreground"
+                            title="Edit bill"
                           >
-                            <CheckCircle2 className="w-4 h-4" />
+                            <Edit2 className="w-4 h-4" />
                           </Button>
-                        )}
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleEdit(bill)}
-                          className="h-8 w-8 p-0 hover:bg-accent hover:text-accent-foreground"
-                          title="Edit bill"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleDelete(bill.id)}
-                          className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-500/10"
-                          title="Delete bill"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleDelete(bill.id)}
+                            className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-500/10"
+                            title="Delete bill"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-        {/* Analytics Chart Placeholder */}
-        <BillsChart bills={bills} />
-      </main>
-
-      {/* Add/Edit Bill Modal with React Hook Form */}
-      <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>
-              {editingBill ? "Edit Bill" : "Add New Bill"}
-            </DialogTitle>
-            <DialogDescription>
-              {editingBill
-                ? "Update bill information"
-                : "Enter the details of your new bill"}
-            </DialogDescription>
-          </DialogHeader>
-
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="title"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Bill Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g., Netflix" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="amount"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Amount</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        placeholder="0.00"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="category"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Category</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select category" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="subscription">
-                          Subscription
-                        </SelectItem>
-                        <SelectItem value="utility">Utility</SelectItem>
-                        <SelectItem value="rent">Rent</SelectItem>
-                        <SelectItem value="insurance">Insurance</SelectItem>
-                        <SelectItem value="other">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="due_date"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Due Date</FormLabel>
-                    <FormControl>
-                      <Input type="datetime-local" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="recurrence"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Recurrence</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="monthly">Monthly</SelectItem>
-                        <SelectItem value="yearly">Yearly</SelectItem>
-                        <SelectItem value="one-time">One-time</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="status"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Status</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="paid">Paid</SelectItem>
-                        <SelectItem value="overdue">Overdue</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className="flex gap-3 justify-end pt-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleCloseModal}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                  disabled={isCreating}
-                >
-                  {isCreating
-                    ? editingBill
-                      ? "Updating..."
-                      : "Creating..."
-                    : editingBill
-                    ? "Update Bill"
-                    : "Add Bill"}
-                </Button>
-              </div>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
-    </>
+      {/* Analytics Chart */}
+      <BillsChart bills={bills} />
+    </div>
   );
 }

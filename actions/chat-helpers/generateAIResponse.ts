@@ -1,24 +1,24 @@
 "use server";
 
-export async function generateAIResponse(context: string, userMessage: string) {
-  const response = await fetch(
-    "https://openrouter.ai/api/v1/chat/completions",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: "openai/gpt-oss-20b:free",
-        messages: [
-          { role: "system", content: context },
-          { role: "user", content: userMessage },
-        ],
-      }),
-    }
-  );
+import { gemini } from "../../lib/ai/gemini";
 
-  const data = await response.json();
-  return data?.choices?.[0]?.message?.content;
+export async function generateAIResponse(context: string, userMessage: string) {
+  try {
+    const response = await gemini.models.generateContent({
+      model: "gemini-2.5-flash", // ✅ Free Gemini model
+      contents: `${context}\n\nUser: ${userMessage}`,
+    });
+
+    const content = response.text;
+
+    if (!content) {
+      throw new Error("No content returned from Gemini");
+    }
+
+    console.log("✅ AI Response generated successfully");
+    return content;
+  } catch (error: any) {
+    console.error("❌ generateAIResponse error:", error.message);
+    throw error;
+  }
 }

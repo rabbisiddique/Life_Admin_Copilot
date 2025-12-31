@@ -24,7 +24,7 @@ export default function VerifyEmailPage() {
   const resend = async () => {
     setIsResending(true);
     try {
-      const r = await resendVerificationEmail(user?.email);
+      const r = await resendVerificationEmail(user?.email!);
       r.success ? toast.success(r.message) : toast.error(r.message);
     } catch (error) {
       toast.error("Failed to resend email");

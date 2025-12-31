@@ -2,8 +2,14 @@
 
 import { createServerSupabaseClient } from "../lib/supabase/server";
 import { Habit } from "../type/index.habit";
+import {
+  createHabitCompletedNotification,
+  createHabitStartAndEndNotification,
+} from "./notifications";
 
-export const createHabitAction = async (habits: Habit) => {
+export const createHabitAction = async (
+  habits: Omit<Habit, "id" | "completed" | "created_at">
+) => {
   try {
     const supabase = await createServerSupabaseClient();
 
@@ -25,6 +31,12 @@ export const createHabitAction = async (habits: Habit) => {
       };
     }
 
+    await createHabitStartAndEndNotification(
+      userData?.user?.id!,
+      habits.title,
+      data?.[0].id
+    );
+
     // revalidatePath("/tasks");
 
     return {
@@ -41,9 +53,9 @@ export const createHabitAction = async (habits: Habit) => {
   }
 };
 
-export async function toggleHabit(habitId: string) {
+export async function toggleHabit(habitId: string, habitTitle: string) {
   const supabase = await createServerSupabaseClient();
-
+  const { data: userData } = await supabase.auth.getUser();
   // today's date
   const today = new Date().toISOString().split("T")[0];
   const now = new Date().toISOString();
@@ -54,6 +66,7 @@ export async function toggleHabit(habitId: string) {
     .select("*")
     .eq("habit_id", habitId)
     .eq("date", today)
+    .select()
     .single();
 
   if (logError && logError.code !== "PGRST116") {
@@ -84,6 +97,11 @@ export async function toggleHabit(habitId: string) {
     });
 
     if (error) throw new Error(error.message);
+    await createHabitCompletedNotification(
+      userData.user?.id!,
+      habitId,
+      habitTitle
+    );
 
     return { status: "complete" };
   }
@@ -154,7 +172,6 @@ export const fetchAllHabits = async () => {
     // 3) Final response
     return {
       success: true,
-      message: "Habits loaded successfully",
       habits: habitsWithLogs,
     };
   } catch (error) {

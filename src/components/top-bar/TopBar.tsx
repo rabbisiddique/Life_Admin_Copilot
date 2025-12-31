@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronDown, LogOut, Moon, Settings, Sun, User } from "lucide-react";
+import { ChevronDown, LogOut, Moon, Sun, User } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -105,15 +105,9 @@ export function TopBar() {
 
             <DropdownMenuItem
               className="cursor-pointer"
-              onClick={() => handleNavigate("/dashboard/profile")}
+              onClick={() => handleNavigate("/profile")}
             >
               <User className="w-4 h-4 mr-2" /> Profile
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              className="cursor-pointer"
-              onClick={() => handleNavigate("/dashboard/settings")}
-            >
-              <Settings className="w-4 h-4 mr-2" /> Settings
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem

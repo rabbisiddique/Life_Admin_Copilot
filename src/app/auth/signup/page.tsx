@@ -63,10 +63,20 @@ const SignUpPage = () => {
     },
   });
 
-  const handleSignup = async (data: ISignup) => {
+  const handleSignup = async (data: z.infer<typeof signupSchema>) => {
     setIsLoading(true);
     try {
-      const res = await SignUp(data);
+      const signupData: ISignup = {
+        first_name: data.first_name,
+        last_name: data.last_name,
+        location: data.location,
+        email: data.email,
+        password: data.password,
+        confirm_password: data.confirmPassword,
+        last_login: new Date().toISOString(),
+        is_verified: false,
+      };
+      const res = await SignUp(signupData);
       console.log(res);
 
       if (!res.success) {
@@ -295,7 +305,7 @@ const SignUpPage = () => {
 
                 <Button
                   onClick={signupForm.handleSubmit(handleSignup)}
-                  className="w-full h-11 bg-gradient-to-r from-primary to-primary/90 hover:shadow-lg transition-all"
+                  className="w-full h-11 bg-linear-to-r from-primary to-primary/90 hover:shadow-lg transition-all"
                   disabled={isLoading}
                 >
                   {isLoading ? (

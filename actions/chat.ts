@@ -25,33 +25,44 @@ export async function sendMessageToAI({
 
   let convoId = conversationId;
 
-  // 1️⃣ Create conversation if missing
+  // 1. Create conversation if missing
   if (!convoId) {
     const convo = await createConversation(supabase, user.id, message);
+    if (!convo?.id) {
+      return { success: false, message: "Failed to create conversation" };
+    }
     convoId = convo.id;
   }
 
-  // 2️⃣ Save user message
-  await saveMessage({
+  // 2. Save user message
+  const userMessage = await saveMessage({
     supabase,
     conversationId: convoId!,
     role: "user",
     content: message,
   });
 
-  // 3️⃣ Build AI context
+  if (!userMessage?.id) {
+    return { success: false, message: "Failed to save user message" };
+  }
+
+  // 3. Build AI context
   const contextMessage = await buildUserContext(supabase, user);
 
-  // 4️⃣ Generate AI response
+  // 4. Generate AI response
   const aiReply = await generateAIResponse(contextMessage, message);
 
-  // 5️⃣ Save AI message
-  await saveMessage({
+  // 5. Save AI message
+  const aiMessage = await saveMessage({
     supabase,
     conversationId: convoId!,
     role: "assistant",
     content: aiReply,
   });
+
+  if (!aiMessage?.id) {
+    return { success: false, message: "Failed to save AI message" };
+  }
 
   return {
     success: true,

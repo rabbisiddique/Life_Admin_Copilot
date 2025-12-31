@@ -11,18 +11,48 @@ export async function saveMessage({
   role: "user" | "assistant";
   content: string;
 }) {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-  if (!user) throw new Error("Unauthorized");
+    if (!user) {
+      console.error("❌ No user found in saveMessage");
+      throw new Error("Unauthorized");
+    }
 
-  const { error } = await supabase.from("ai_messages").insert({
-    conversation_id: conversationId,
-    user_id: user.id,
-    role,
-    content,
-  });
+    console.log("💬 Saving message:", {
+      conversationId,
+      role,
+      userId: user.id,
+    });
 
-  if (error) throw error;
+    const { data, error } = await supabase
+      .from("ai_messages")
+      .insert({
+        conversation_id: conversationId,
+        user_id: user.id,
+        role,
+        content,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error("❌ Failed to save message:", error);
+      console.error("Error details:", {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      });
+      throw error;
+    }
+
+    console.log("✅ Message saved:", data?.id);
+    return data;
+  } catch (error) {
+    console.error("❌ Exception in saveMessage:", error);
+    throw error;
+  }
 }

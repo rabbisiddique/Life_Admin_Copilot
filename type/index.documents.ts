@@ -1,6 +1,6 @@
 export interface Document {
   id: string;
-  name: string;
+  title: string;
   file_type: string;
   expiry_date: string;
   status: "valid" | "expiring" | "expired";

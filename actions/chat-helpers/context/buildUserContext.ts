@@ -139,48 +139,62 @@ export async function buildUserContext(
     .select("id, title, created_at")
     .eq("user_id", user.id);
 
-  const { data: habitLogsData, error: habitLogsError } = await supabase
+  const { data: habitLogsData, error } = await supabase
     .from("habit_logs")
-    .select("habit_id, status, date")
-    .eq("user_id", user.id);
+    .select(
+      `
+    habit_id,
+    date,
+    completed,
+    habits!inner(user_id)
+  `
+    )
+    .eq("habits.user_id", user.id);
 
-  if (habitError) console.error("Habits fetch error:", habitError);
+  if (error) console.error(error);
 
   const habitStats = {
-    total: habitsData?.length || 0,
+    totalHabits: habitsData?.length || 0,
+
     completedToday:
-      habitLogsData?.filter(
-        (log) =>
-          log.status === "completed" &&
-          new Date(log.date).toDateString() === today.toDateString()
-      ).length || 0,
-    // This week
+      habitLogsData?.filter((log) => {
+        const logDate = new Date(log.date);
+        return (
+          log.completed === true &&
+          logDate.getFullYear() === today.getFullYear() &&
+          logDate.getMonth() === today.getMonth() &&
+          logDate.getDate() === today.getDate()
+        );
+      }).length || 0,
+
     thisWeekCompleted:
       habitLogsData?.filter((log) => {
         const logDate = new Date(log.date);
         return (
-          log.status === "completed" &&
+          log.completed === true &&
           logDate >= startOfWeek &&
           logDate <= endOfWeek
         );
       }).length || 0,
-    // This month
-    thisMonthCompleted:
+
+    completedThisMonth:
       habitLogsData?.filter((log) => {
         const logDate = new Date(log.date);
         return (
-          log.status === "completed" &&
-          logDate.getMonth() === currentMonth &&
-          logDate.getFullYear() === currentYear
+          log.completed === true &&
+          logDate.getFullYear() === today.getFullYear() &&
+          logDate.getMonth() === today.getMonth()
         );
       }).length || 0,
-    totalLogs: habitLogsData?.length || 0,
+
+    totalCompletions:
+      habitLogsData?.filter((log) => log.completed === true).length || 0,
   };
 
   // Documents data
   const { data: documentsData, error: documentError } = await supabase
     .from("documents")
-    .select("id, name, expiry_date, status, created_at")
+    .select("id, title, expiry_date, status, created_at")
     .eq("user_id", user.id);
 
   if (documentError) console.error("Documents fetch error:", documentError);
@@ -208,7 +222,7 @@ export async function buildUserContext(
               (1000 * 60 * 60 * 24)
           );
           return {
-            name: d.name,
+            name: d.title,
             expiry_date: d.expiry_date,
             days_until_expiry: daysUntilExpiry,
           };
@@ -256,11 +270,11 @@ BILLS: ${billStats.total} total | ${billStats.paid} paid | ${
   }
 - Upcoming: ${upcomingBills}
 
-HABITS: ${habitStats.total} total | Today: ${
+HABITS: ${habitStats.totalHabits} total | Today: ${
     habitStats.completedToday
   } | Week: ${habitStats.thisWeekCompleted} | Month: ${
-    habitStats.thisMonthCompleted
-  }
+    habitStats.completedThisMonth
+  } | All-time completions: ${habitStats.totalCompletions}
 
 DOCUMENTS: ${documentStats.total} total | ${documentStats.valid} valid | ${
     documentStats.expiring
@@ -273,7 +287,8 @@ RULES:
 3. For summaries, provide actionable insights
 4. ONLY answer questions about tasks, bills, habits, and documents
 5. If asked about anything else, reply: "I can only help with tasks, bills, habits, and documents in this app."
-6. Never repeat greetings in follow-up messages`;
+6. If asked about application, make the response concise 
+7. Never repeat greetings in follow-up messages`;
 
   return contextMessage;
 }

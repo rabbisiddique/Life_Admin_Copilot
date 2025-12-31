@@ -1,7 +1,6 @@
 import { MoodTracker } from "@/components/dashboard/mood-tracker";
 import { QuickActions } from "@/components/dashboard/quick-actions";
 import { SummaryCards } from "@/components/dashboard/summary-cards";
-import BillList from "@/components/reminders/bill-list";
 
 export default function DashboardPage() {
   return (
@@ -22,9 +21,6 @@ export default function DashboardPage() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <MoodTracker />
-        <div className="rounded-2xl border border-border bg-card shadow-lg p-6">
-          <BillList />
-        </div>
       </div>
     </div>
   );

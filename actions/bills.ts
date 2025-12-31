@@ -7,7 +7,7 @@ import {
   createBillPaidNotification,
 } from "./notifications";
 
-export const CreateBillsAction = async (bills: Bill) => {
+export const CreateBillsAction = async (bills: Omit<Bill, "id">) => {
   try {
     const supabase = await createServerSupabaseClient();
     const { data: userData } = await supabase.auth.getUser();
@@ -53,7 +53,10 @@ export const CreateBillsAction = async (bills: Bill) => {
   }
 };
 
-export const UpdateBillsAction = async (bills: Bill, id: string) => {
+export const UpdateBillsAction = async (
+  bills: Omit<Bill, "id">,
+  id: string
+) => {
   try {
     const supabase = await createServerSupabaseClient();
 

@@ -56,7 +56,6 @@ export function ChatWidget() {
         .single();
 
       if (error || !data) {
-        // Conversation doesn't exist, clear localStorage
         console.log("⚠️ Conversation not found, clearing localStorage");
         localStorage.removeItem("chat_conversation_id");
         return;
@@ -121,39 +120,72 @@ export function ChatWidget() {
 
     const userMessage = input.trim();
     setInput("");
+
+    // Create optimistic user message
+    const optimisticUserMessage: Message = {
+      id: `temp-${Date.now()}`,
+      conversation_id: conversationId || "",
+      user_id: user?.id || null,
+      role: "user",
+      content: userMessage,
+      created_at: new Date().toISOString(),
+    };
+
+    // Add user message to UI immediately
+    setMessages((prev) => [...prev, optimisticUserMessage]);
+
+    // Scroll to bottom immediately
+    setTimeout(scrollToBottom, 50);
+
+    // Show typing indicator
     setIsTyping(true);
 
     try {
       const res = await sendMessageToAI({
-        conversationId,
+        conversationId: conversationId ?? undefined,
         message: userMessage,
       });
 
       if (!res.success) {
-        console.error(res.message);
+        console.error("❌ sendMessageToAI failed:", res.message);
+
+        // Remove optimistic message on error
+        setMessages((prev) =>
+          prev.filter((msg) => msg.id !== optimisticUserMessage.id)
+        );
+
+        // Show specific error message
+        toast.error(res.message || "Failed to send message");
+
         // If foreign key constraint error, clear invalid conversation ID
         if (
           res.message?.includes("foreign key constraint") ||
           res.message?.includes("conversation_id_fkey")
         ) {
-          toast.error("⚠️ Invalid conversation ID, clearing and retrying");
+          console.log("🔄 Clearing invalid conversation ID");
           localStorage.removeItem("chat_conversation_id");
           setConversationId(null);
           setMessages([]);
-          toast.error("Starting new conversation");
-        } else {
-          toast.error("Failed to send message");
         }
+
         setInput(userMessage);
       } else {
         // Set conversation ID on first message
         if (!conversationId && res.conversationId) {
           setConversationId(res.conversationId);
         }
+
+        // Show intent detection result
       }
-    } catch (error) {
-      console.error("Send message error:", error);
-      toast.error("Failed to send message");
+    } catch (error: any) {
+      console.error("💥 Send message exception:", error);
+
+      // Remove optimistic message on error
+      setMessages((prev) =>
+        prev.filter((msg) => msg.id !== optimisticUserMessage.id)
+      );
+
+      toast.error(error?.message || "Failed to send message");
       setInput(userMessage);
     } finally {
       setIsTyping(false);
@@ -377,15 +409,10 @@ export function ChatWidget() {
                                 </AvatarFallback>
                               </Avatar>
                               <div className="rounded-2xl bg-muted px-4 py-3 border border-border">
-                                <div className="flex flex-col gap-2">
-                                  <div className="flex gap-1.5">
-                                    <div className="h-2.5 w-2.5 animate-bounce rounded-full bg-foreground/50" />
-                                    <div className="h-2.5 w-2.5 animate-bounce rounded-full bg-foreground/50 [animation-delay:0.2s]" />
-                                    <div className="h-2.5 w-2.5 animate-bounce rounded-full bg-foreground/50 [animation-delay:0.4s]" />
-                                  </div>
-                                  <p className="text-xs text-muted-foreground">
-                                    Analyzing your data...
-                                  </p>
+                                <div className="flex gap-1.5">
+                                  <div className="h-2.5 w-2.5 animate-bounce rounded-full bg-foreground/50" />
+                                  <div className="h-2.5 w-2.5 animate-bounce rounded-full bg-foreground/50 [animation-delay:0.2s]" />
+                                  <div className="h-2.5 w-2.5 animate-bounce rounded-full bg-foreground/50 [animation-delay:0.4s]" />
                                 </div>
                               </div>
                             </motion.div>

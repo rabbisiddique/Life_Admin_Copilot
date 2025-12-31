@@ -16,39 +16,61 @@ export function useChatRealtime(
     if (!conversationId) return;
 
     const supabase = createClient();
-    const channel = supabase
-      .channel(`chat:${conversationId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "ai_messages",
-          filter: `conversation_id=eq.${conversationId}`,
-        },
-        (payload) => {
-          const newMessage = payload.new as Message;
+    const channel = supabase.channel(`chat:${conversationId}`);
 
-          setMessages((prev) => {
-            // Remove any temp messages with same content and role
-            const withoutTemp = prev.filter(
-              (m) =>
-                !(
-                  m.id.startsWith("temp-") &&
-                  m.content === newMessage.content &&
-                  m.role === newMessage.role
-                )
-            );
+    // Handle new messages (INSERT events)
+    channel.on(
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "ai_messages",
+        filter: `conversation_id=eq.${conversationId}`,
+      },
+      (payload) => {
+        const newMessage = payload.new as Message;
 
-            // Check if message already exists (prevent duplicates)
-            const exists = withoutTemp.some((m) => m.id === newMessage.id);
-            if (exists) return prev;
+        setMessages((prev) => {
+          // Remove any temp messages with same content and role
+          const withoutTemp = prev.filter(
+            (m) =>
+              !(
+                m.id.startsWith("temp-") &&
+                m.content === newMessage.content &&
+                m.role === newMessage.role
+              )
+          );
 
-            return [...withoutTemp, newMessage];
-          });
-        }
-      )
-      .subscribe();
+          // Check if message already exists (prevent duplicates)
+          const exists = withoutTemp.some((m) => m.id === newMessage.id);
+          if (exists) return prev;
+
+          return [...withoutTemp, newMessage];
+        });
+      }
+    );
+
+    // Handle updated messages (UPDATE events) - for clarifications
+    channel.on(
+      "postgres_changes",
+      {
+        event: "UPDATE",
+        schema: "public",
+        table: "ai_messages",
+        filter: `conversation_id=eq.${conversationId}`,
+      },
+      (payload) => {
+        const updatedMessage = payload.new as Message;
+
+        setMessages((prev) =>
+          prev.map((m) => (m.id === updatedMessage.id ? updatedMessage : m))
+        );
+
+        console.log("📝 Message updated:", updatedMessage.id);
+      }
+    );
+
+    channel.subscribe();
 
     return () => {
       supabase.removeChannel(channel);

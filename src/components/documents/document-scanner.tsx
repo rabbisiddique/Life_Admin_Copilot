@@ -16,6 +16,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -44,6 +54,7 @@ import {
   Sparkles,
   Trash2,
   Upload,
+  X,
   XCircle,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -57,6 +68,281 @@ import { createClient } from "../../../lib/supabase/client";
 import { uploadFile } from "../../../lib/uploadFile";
 import { Document } from "../../../type/index.documents";
 import Spinner from "../Spinner/Spinner";
+import StatCard from "../stat-card/StatCard";
+
+// Hook to detect mobile screens
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  return isMobile;
+}
+
+// Document Form Component (reusable for both Dialog and Drawer)
+function DocumentForm({
+  uploadForm,
+  setUploadForm,
+  handleFileSelect,
+  handleUpload,
+  isUploading,
+  isExtracting,
+  extractedData,
+  extractionError,
+}: any) {
+  return (
+    <div className="grid gap-4 py-4">
+      {/* File Input */}
+      <div className="grid gap-2">
+        <Label htmlFor="file" className="text-sm font-semibold">
+          Select Document
+        </Label>
+        <Input
+          id="file"
+          type="file"
+          accept=".pdf,.jpg,.jpeg,.png"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) handleFileSelect(file);
+          }}
+          className="cursor-pointer h-11"
+        />
+        {uploadForm.file && (
+          <div className="flex items-center gap-2 p-2 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+            <FileText className="h-4 w-4 text-blue-500 shrink-0" />
+            <span className="text-xs sm:text-sm font-medium truncate">
+              {uploadForm.file.name}
+            </span>
+            <span className="text-xs text-muted-foreground ml-auto shrink-0">
+              {(uploadForm.file.size / 1024 / 1024).toFixed(2)} MB
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* AI Toggle */}
+      <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-950/20 dark:to-blue-950/20 rounded-lg border border-purple-200 dark:border-purple-800">
+        <input
+          type="checkbox"
+          id="useAI"
+          checked={uploadForm.useAI}
+          onChange={(e) =>
+            setUploadForm({
+              ...uploadForm,
+              useAI: e.target.checked,
+            })
+          }
+          className="h-4 w-4 rounded border-purple-300"
+        />
+        <Label
+          htmlFor="useAI"
+          className="text-xs sm:text-sm cursor-pointer flex items-center gap-2 flex-1"
+        >
+          <Brain className="h-4 w-4 text-purple-500 shrink-0" />
+          <div>
+            <div className="font-semibold">Use AI Extraction</div>
+            <div className="text-xs text-muted-foreground hidden sm:block">
+              Auto-extract details using Claude AI
+            </div>
+          </div>
+        </Label>
+      </div>
+
+      {/* Extraction Status */}
+      {isExtracting && (
+        <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+          <Loader className="h-5 w-5 text-blue-500 animate-spin shrink-0" />
+          <div className="min-w-0">
+            <div className="text-xs sm:text-sm font-semibold text-blue-700 dark:text-blue-400">
+              AI analyzing...
+            </div>
+            <div className="text-xs text-muted-foreground hidden sm:block">
+              This may take a few seconds
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Extraction Success */}
+      {extractedData && !isExtracting && (
+        <div className="p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
+          <div className="flex items-center gap-2 mb-1">
+            <CheckCircle className="h-4 w-4 text-green-500 shrink-0" />
+            <span className="text-xs sm:text-sm font-semibold text-green-700 dark:text-green-400">
+              Extraction Complete!
+            </span>
+            <Badge variant="secondary" className="ml-auto text-xs">
+              {Math.round((extractedData.confidence || 0) * 100)}%
+            </Badge>
+          </div>
+          <p className="text-xs text-muted-foreground">Review the info below</p>
+        </div>
+      )}
+
+      {/* Extraction Error */}
+      {extractionError && (
+        <div className="p-3 bg-rose-50 dark:bg-rose-950/20 rounded-lg border border-rose-200 dark:border-rose-800">
+          <div className="flex items-center gap-2 mb-1">
+            <AlertTriangle className="h-4 w-4 text-rose-500 shrink-0" />
+            <span className="text-xs sm:text-sm font-semibold text-rose-700 dark:text-rose-400">
+              Extraction Failed
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Please fill in manually
+          </p>
+        </div>
+      )}
+
+      {/* Form Fields */}
+      <div className="grid gap-3">
+        <div className="grid gap-2">
+          <Label htmlFor="doc-name" className="text-sm">
+            Document Name *
+          </Label>
+          <Input
+            id="doc-name"
+            placeholder="e.g. Passport"
+            value={uploadForm.title}
+            onChange={(e) =>
+              setUploadForm({
+                ...uploadForm,
+                title: e.target.value,
+              })
+            }
+            className="h-11"
+          />
+        </div>
+
+        <div className="grid gap-2">
+          <Label htmlFor="doc-category" className="text-sm">
+            Category *
+          </Label>
+          <Select
+            value={uploadForm.category}
+            onValueChange={(val) =>
+              setUploadForm({ ...uploadForm, category: val })
+            }
+          >
+            <SelectTrigger className="h-11">
+              <SelectValue placeholder="Select category" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="identity">🪪 Identity</SelectItem>
+              <SelectItem value="insurance">🛡️ Insurance</SelectItem>
+              <SelectItem value="license">📜 License</SelectItem>
+              <SelectItem value="contract">📄 Contract</SelectItem>
+              <SelectItem value="other">📁 Other</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="grid sm:grid-cols-2 gap-3">
+          <div className="grid gap-2">
+            <Label htmlFor="expiry-date" className="text-sm">
+              Expiry Date
+            </Label>
+            <Input
+              id="expiry-date"
+              type="date"
+              value={uploadForm.expiryDate}
+              onChange={(e) =>
+                setUploadForm({
+                  ...uploadForm,
+                  expiryDate: e.target.value,
+                })
+              }
+              className="h-11"
+            />
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="doc-number" className="text-sm">
+              Document Number
+            </Label>
+            <Input
+              id="doc-number"
+              placeholder="e.g. AB123456"
+              value={uploadForm.documentNumber}
+              onChange={(e) =>
+                setUploadForm({
+                  ...uploadForm,
+                  documentNumber: e.target.value,
+                })
+              }
+              className="h-11"
+            />
+          </div>
+        </div>
+
+        <div className="grid sm:grid-cols-2 gap-3">
+          <div className="grid gap-2">
+            <Label htmlFor="issue-date" className="text-sm">
+              Issue Date
+            </Label>
+            <Input
+              id="issue-date"
+              type="date"
+              value={uploadForm.issueDate}
+              onChange={(e) =>
+                setUploadForm({
+                  ...uploadForm,
+                  issueDate: e.target.value,
+                })
+              }
+              className="h-11"
+            />
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="issuing-auth" className="text-sm">
+              Issuing Authority
+            </Label>
+            <Input
+              id="issuing-auth"
+              placeholder="e.g. Government"
+              value={uploadForm.issuingAuthority}
+              onChange={(e) =>
+                setUploadForm({
+                  ...uploadForm,
+                  issuingAuthority: e.target.value,
+                })
+              }
+              className="h-11"
+            />
+          </div>
+        </div>
+      </div>
+
+      <Button
+        onClick={handleUpload}
+        disabled={isUploading || isExtracting || !uploadForm.file}
+        className="w-full h-11 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+        size="lg"
+      >
+        {isUploading ? (
+          <>
+            <Loader className="mr-2 h-4 w-4 animate-spin" />
+            Uploading...
+          </>
+        ) : (
+          <>
+            <Upload className="mr-2 h-4 w-4" />
+            Upload Document
+          </>
+        )}
+      </Button>
+    </div>
+  );
+}
 
 export default function DocumentScanner() {
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -69,9 +355,10 @@ export default function DocumentScanner() {
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractionError, setExtractionError] = useState<string>("");
   const [extractedData, setExtractedData] = useState<any>(null);
+  const [showFilters, setShowFilters] = useState(false);
 
   const [uploadForm, setUploadForm] = useState({
-    name: "",
+    title: "",
     category: "",
     expiryDate: "",
     file: null as File | null,
@@ -82,6 +369,7 @@ export default function DocumentScanner() {
   });
 
   const supabase = createClient();
+  const isMobile = useIsMobile();
 
   // Calculate status based on expiry date
   const calculateStatus = (
@@ -120,7 +408,6 @@ export default function DocumentScanner() {
 
       if (error) throw error;
 
-      // Calculate status for each document
       const docsWithStatus = (data || []).map((doc) => ({
         ...doc,
         status: calculateStatus(doc.expiry_date),
@@ -140,72 +427,51 @@ export default function DocumentScanner() {
   }, []);
 
   useEffect(() => {
-    // Don't set up real-time until we have initial data
     if (documents.length === 0 && isLoading) return;
 
     const channel = supabase
       .channel("documents-changes")
       .on(
         "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "documents" },
+        { event: "*", schema: "public", table: "documents" },
         (payload) => {
-          console.log("Realtime UPDATE payload:", payload);
-
-          // Use payload.new directly - it contains the updated bill
-          setDocuments((prev) =>
-            prev.map((b) =>
-              b.id === payload.new.id ? (payload.new as Document) : b
-            )
-          );
+          if (payload.eventType === "INSERT") {
+            setDocuments((prev) => [payload.new as Document, ...prev]);
+          } else if (payload.eventType === "UPDATE") {
+            setDocuments((prev) =>
+              prev.map((d) =>
+                d.id === payload.new.id ? (payload.new as Document) : d
+              )
+            );
+          } else if (payload.eventType === "DELETE") {
+            setDocuments((prev) => prev.filter((d) => d.id !== payload.old.id));
+          }
         }
       )
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "documents" },
-        (payload) => {
-          console.log("Realtime INSERT payload:", payload);
-          setDocuments((prev) => [payload.new as Document, ...prev]);
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "DELETE", schema: "public", table: "documents" },
-        (payload) => {
-          console.log("Realtime DELETE payload:", payload);
-          setDocuments((prev) => prev.filter((b) => b.id !== payload.old.id));
-        }
-      )
-      .subscribe((status) => {
-        console.log("Channel subscription status:", status);
-        if (status === "SUBSCRIBED") {
-          console.log("Successfully subscribed to documents changes");
-        }
-      });
+      .subscribe();
 
     return () => {
-      console.log("Cleaning up real-time subscription");
       supabase.removeChannel(channel);
     };
-  }, [isLoading]); // Only re-subscribe if loading state changes
-  // AI Extraction using Claude API
+  }, [isLoading]);
+
+  // AI Extraction
   const extractDataWithAI = async (file: File) => {
     setIsExtracting(true);
     setExtractionError("");
     setExtractedData(null);
 
     try {
-      console.log("Uploading file to OpenAI…");
       const res = await extractDocument(file);
-
       console.log(res);
+
       const extracted = res.data;
       setExtractedData(extracted);
       toast.success("AI extraction successful!");
 
-      // Autofill upload form
       setUploadForm((prev) => ({
         ...prev,
-        name: extracted?.document_name || prev.name,
+        title: extracted?.document_name || prev.title,
         category: extracted?.document_type
           ? mapDocumentTypeToCategory(extracted.document_type)
           : prev.category,
@@ -226,14 +492,12 @@ export default function DocumentScanner() {
     }
   };
 
-  // Upload file to Supabase Storage
-
   // Handle file selection
   const handleFileSelect = async (file: File) => {
     setUploadForm((prev) => ({ ...prev, file }));
     setExtractionError("");
     setExtractedData(null);
-    toast.loading("✨ AI is diving into your document... sit tight!", {
+    toast.loading("✨ AI analyzing document...", {
       id: "ai-extract",
     });
     if (uploadForm.useAI) {
@@ -248,8 +512,8 @@ export default function DocumentScanner() {
       return;
     }
 
-    if (!uploadForm.name || !uploadForm.category) {
-      toast.error("Please fill in document name and category");
+    if (!uploadForm.title || !uploadForm.category) {
+      toast.error("Please fill in document title and category");
       return;
     }
 
@@ -261,31 +525,25 @@ export default function DocumentScanner() {
       } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      // Upload file to storage
       const fileUrl = await uploadFile(uploadForm.file);
       if (!fileUrl) throw new Error("Failed to upload file");
 
-      // Prepare dates
       let issueDate = uploadForm.issueDate
         ? new Date(uploadForm.issueDate)
-        : new Date(); // default to today
+        : new Date();
 
       let expiryDate = uploadForm.expiryDate
         ? new Date(uploadForm.expiryDate)
         : null;
 
-      // Ensure expiry date is not before issue date
       if (expiryDate && expiryDate < issueDate) {
-        // toast.error(
-        //   "Expiry date cannot be before issue date. Adjusting expiry to 1 year after issue date."
-        // );
         expiryDate = new Date(issueDate);
         expiryDate.setFullYear(expiryDate.getFullYear() + 1);
       }
 
       const documentData: any = {
         user_id: user.id,
-        name: uploadForm.name,
+        title: uploadForm.title,
         category: uploadForm.category,
         file_type: uploadForm.file.type || "application/pdf",
         file_path: `${user.id}/${Date.now()}_${uploadForm.file.name}`,
@@ -308,24 +566,18 @@ export default function DocumentScanner() {
       if (extractedData?.confidence)
         documentData.ai_confidence_score = extractedData.confidence;
 
-      // Insert into database
       const { data: insertedDocs, error } = await supabase
         .from("documents")
         .insert([documentData])
         .select();
 
       if (error) throw error;
-      if (!insertedDocs || insertedDocs.length === 0) {
-        throw new Error("Document insertion failed: no data returned");
-      }
-      const insertedDocId = insertedDocs![0].id;
 
-      // Create expiry notification 2 days before
       if (expiryDate) {
         await createExpiryNotification(
           user.id,
           "Document Expiry Alert",
-          `Your document "${uploadForm.name}" will expire in 2 days!`,
+          `Your document "${uploadForm.title}" will expire in 2 days!`,
           "document",
           `/documents`,
           expiryDate.toISOString().split("T")[0]
@@ -334,9 +586,8 @@ export default function DocumentScanner() {
 
       toast.success("Document uploaded successfully!");
 
-      // Reset form
       setUploadForm({
-        name: "",
+        title: "",
         category: "",
         expiryDate: "",
         file: null,
@@ -359,11 +610,7 @@ export default function DocumentScanner() {
   // Delete document
   const handleDelete = async (id: string) => {
     try {
-      const { error } = await supabase
-        .from("documents")
-        .delete()
-        .eq("id", id)
-        .select();
+      const { error } = await supabase.from("documents").delete().eq("id", id);
 
       if (error) throw error;
       toast.success("Document removed successfully");
@@ -373,7 +620,7 @@ export default function DocumentScanner() {
     }
   };
 
-  // Renew document (add 1 year)
+  // Renew document
   const handleRenew = async (id: string) => {
     try {
       const {
@@ -387,26 +634,25 @@ export default function DocumentScanner() {
       const newExpiryDate = newDate.toISOString().split("T")[0];
       const newStatus = calculateStatus(newExpiryDate);
 
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from("documents")
         .update({
           expiry_date: newExpiryDate,
           status: newStatus,
         })
-        .eq("id", id)
-        .select()
-        .single();
+        .eq("id", id);
+
       if (error) throw error;
 
       await createRenewNotification(
         user!.id,
         "Document Renewed",
-        `Your passport has been successfully renewed!`,
+        `Your document has been successfully renewed!`,
         "document",
         `/documents`
       );
 
-      toast.success("Document renewed for 1 year", { id: "renew-doc" });
+      toast.success("Document renewed for 1 year", { id: "documents action" });
     } catch (err) {
       console.error("Renew error:", err);
       toast.error("Failed to renew document");
@@ -437,11 +683,11 @@ export default function DocumentScanner() {
   const getStatusColor = (status: Document["status"]) => {
     switch (status) {
       case "valid":
-        return "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20 border-emerald-200 dark:border-emerald-800";
+        return "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800";
       case "expiring":
-        return "bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 border-amber-200 dark:border-amber-800";
+        return "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800";
       case "expired":
-        return "bg-rose-500/10 text-rose-700 dark:text-rose-400 hover:bg-rose-500/20 border-rose-200 dark:border-rose-800";
+        return "bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-800";
     }
   };
 
@@ -504,17 +750,20 @@ export default function DocumentScanner() {
     return (
       <Badge variant="secondary" className={`${badge.color} border text-xs`}>
         <Icon className="h-3 w-3 mr-1" />
-        {badge.text}
-        {doc.ai_confidence_score &&
-          `: ${Math.round(doc.ai_confidence_score * 100)}%`}
+        <span className="hidden sm:inline">{badge.text}</span>
+        {doc.ai_confidence_score && (
+          <span className="hidden sm:inline">
+            : {Math.round(doc.ai_confidence_score * 100)}%
+          </span>
+        )}
       </Badge>
     );
   };
 
   const filteredDocuments = documents.filter((doc) => {
-    const matchesSearch = doc.name
-      .toLowerCase()
-      .includes(searchQuery.toLowerCase());
+    const matchesSearch = doc?.title
+      ?.toLowerCase()
+      .includes(searchQuery?.toLowerCase());
     const matchesCategory =
       filterCategory === "all" || doc.category === filterCategory;
     return matchesSearch && matchesCategory;
@@ -541,433 +790,216 @@ export default function DocumentScanner() {
     return <Spinner title="Loading documents..." />;
   }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 dark:from-gray-950 dark:via-blue-950 dark:to-purple-950 p-4 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Hero Section */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-500 p-8 md:p-12 text-white shadow-2xl">
-          <div className="absolute -top-40 -right-40 h-80 w-80 rounded-full bg-white/10 blur-3xl" />
-          <div className="absolute -bottom-20 -left-20 h-60 w-60 rounded-full bg-white/5 blur-3xl" />
-          <div className="relative">
-            <div className="flex items-center gap-3 mb-3">
-              <Sparkles className="h-10 w-10 animate-pulse" />
-              <h1 className="text-4xl md:text-5xl font-bold">
-                AI Document Manager
-              </h1>
-            </div>
-            <p className="text-blue-100 text-lg md:text-xl max-w-3xl">
-              Automatically extract expiry dates and details with AI-powered
-              analysis. Upload once, never miss an expiration again.
-            </p>
+  const DocumentFormModal = isMobile ? (
+    <Drawer open={isUploadOpen} onOpenChange={setIsUploadOpen}>
+      <DrawerTrigger asChild>
+        <Button
+          size="default"
+          className="h-11 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+        >
+          <Upload className="mr-2 h-4 w-4" />
+          <span className="hidden sm:inline">Upload</span>
+        </Button>
+      </DrawerTrigger>
+      <DrawerContent>
+        <div className="mx-auto w-full max-w-sm max-h-[85vh] overflow-y-auto">
+          <DrawerHeader>
+            <DrawerTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-purple-500" />
+              Upload Document
+            </DrawerTitle>
+            <DrawerDescription>AI will auto-extract details</DrawerDescription>
+          </DrawerHeader>
+          <div className="px-4">
+            <DocumentForm
+              uploadForm={uploadForm}
+              setUploadForm={setUploadForm}
+              handleFileSelect={handleFileSelect}
+              handleUpload={handleUpload}
+              isUploading={isUploading}
+              isExtracting={isExtracting}
+              extractedData={extractedData}
+              extractionError={extractionError}
+            />
           </div>
+          <DrawerFooter className="mt-[-19px]">
+            <DrawerClose asChild>
+              <Button variant="outline" className="h-11">
+                Cancel
+              </Button>
+            </DrawerClose>
+          </DrawerFooter>
         </div>
+      </DrawerContent>
+    </Drawer>
+  ) : (
+    <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
+      <DialogTrigger asChild>
+        <Button
+          size="lg"
+          className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+        >
+          <Upload className="mr-2 h-5 w-5" />
+          Choose Files
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-xl">
+            <Sparkles className="h-6 w-6 text-purple-500" />
+            Upload New Document
+          </DialogTitle>
+        </DialogHeader>
+        <DocumentForm
+          uploadForm={uploadForm}
+          setUploadForm={setUploadForm}
+          handleFileSelect={handleFileSelect}
+          handleUpload={handleUpload}
+          isUploading={isUploading}
+          isExtracting={isExtracting}
+          extractedData={extractedData}
+          extractionError={extractionError}
+        />
+      </DialogContent>
+    </Dialog>
+  );
 
-        {/* Stats Cards */}
-        <div className="grid gap-4 md:grid-cols-4">
-          <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <FileText className="h-4 w-4" />
-                Total Documents
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                {stats.total}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">All uploads</p>
-            </CardContent>
-          </Card>
+  const activeFilters = filterCategory !== "all" ? 1 : 0;
 
-          <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-purple-600 dark:text-purple-400 flex items-center gap-2">
-                <Sparkles className="h-4 w-4" />
-                AI Processed
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-4xl font-bold text-purple-600 dark:text-purple-400">
-                {stats.aiProcessed}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Auto-extracted
-              </p>
-            </CardContent>
-          </Card>
+  return (
+    <div className="space-y-4 sm:space-y-6 sm:p-4 md:p-6 mx-auto max-w-7xl w-full overflow-x-hidden">
+      {/* Page Header */}
+      <div className="space-y-1">
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight flex items-center gap-2">
+          <Sparkles className="h-6 w-6 sm:h-8 sm:w-8 text-purple-500" />
+          AI Document Manager
+        </h1>
+        <p className="text-muted-foreground text-sm sm:text-base">
+          Auto-extract expiry dates with AI-powered analysis
+        </p>
+      </div>
 
-          <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-amber-600 dark:text-amber-400 flex items-center gap-2">
-                <Clock className="h-4 w-4" />
-                Expiring Soon
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-4xl font-bold text-amber-600 dark:text-amber-400">
-                {stats.expiring}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Within 30 days
-              </p>
-            </CardContent>
-          </Card>
+      {/* Stats Cards - Responsive Grid */}
+      <div className="grid gap-1.5 sm:gap-2 md:gap-3 grid-cols-2 lg:grid-cols-4 w-full">
+        <StatCard
+          label="Total Documents"
+          shortLabel="Total"
+          value={stats.total}
+          color="text-primary"
+        />
+        <StatCard
+          label="AI Processed"
+          shortLabel="AI"
+          value={stats.aiProcessed}
+          color="text-purple-600 dark:text-purple-400"
+        />
+        <StatCard
+          label="Expiring Soon"
+          shortLabel="Expiring"
+          value={stats.expiring}
+          color="text-amber-600 dark:text-amber-400"
+        />
+        <StatCard
+          label="Expired"
+          shortLabel="Expired"
+          value={stats.expired}
+          color="text-rose-600 dark:text-rose-400"
+        />
+      </div>
 
-          <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-rose-600 dark:text-rose-400 flex items-center gap-2">
-                <AlertCircle className="h-4 w-4" />
-                Expired
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-4xl font-bold text-rose-600 dark:text-rose-400">
-                {stats.expired}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Action required
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Upload Area */}
-        <Card className="border-0 shadow-lg overflow-hidden">
-          <CardContent className="p-6">
-            <div
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-              className={`relative rounded-2xl border-2 border-dashed p-12 text-center transition-all duration-300 ${
-                isDragging
-                  ? "border-purple-500 bg-purple-50 dark:bg-purple-950/30 scale-105"
-                  : "border-gray-300 dark:border-gray-700 bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900/20 dark:to-blue-950/10 hover:border-purple-400 hover:shadow-lg"
-              }`}
-            >
-              <div className="flex items-center justify-center gap-3 mb-4">
-                <Upload
-                  className={`h-16 w-16 text-gray-400 transition-transform ${
-                    isDragging ? "scale-110" : ""
-                  }`}
-                />
-                <Sparkles className="h-10 w-10 text-purple-500 animate-pulse" />
-              </div>
-              <h3 className="text-2xl font-bold mb-2">AI-Powered Upload</h3>
-              <p className="text-muted-foreground mb-6 max-w-lg mx-auto">
-                Drop files here or click to upload. AI will automatically
-                extract expiry dates, document numbers, and other details.
-              </p>
-              <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
-                <DialogTrigger asChild>
-                  <Button
-                    size="lg"
-                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg hover:shadow-xl transition-all duration-300"
-                  >
-                    <Upload className="mr-2 h-5 w-5" />
-                    Choose Files
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                  <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-2xl">
-                      <Sparkles className="h-6 w-6 text-purple-500" />
-                      Upload New Document
-                    </DialogTitle>
-                  </DialogHeader>
-
-                  <div className="grid gap-6 py-4">
-                    {/* File Input */}
-                    <div className="grid gap-3">
-                      <Label htmlFor="file" className="text-base font-semibold">
-                        Select Document
-                      </Label>
-                      <Input
-                        id="file"
-                        type="file"
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) handleFileSelect(file);
-                        }}
-                        className="cursor-pointer"
-                      />
-                      {uploadForm.file && (
-                        <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                          <FileText className="h-4 w-4 text-blue-500" />
-                          <span className="text-sm font-medium">
-                            {uploadForm.file.name}
-                          </span>
-                          <span className="text-xs text-muted-foreground ml-auto">
-                            {(uploadForm.file.size / 1024 / 1024).toFixed(2)} MB
-                          </span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* AI Toggle */}
-                    <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-950/20 dark:to-blue-950/20 rounded-xl border-2 border-purple-200 dark:border-purple-800">
-                      <input
-                        type="checkbox"
-                        id="useAI"
-                        checked={uploadForm.useAI}
-                        onChange={(e) =>
-                          setUploadForm({
-                            ...uploadForm,
-                            useAI: e.target.checked,
-                          })
-                        }
-                        className="h-5 w-5 rounded border-purple-300"
-                      />
-                      <Label
-                        htmlFor="useAI"
-                        className="text-sm cursor-pointer flex items-center gap-2 flex-1"
-                      >
-                        <Brain className="h-5 w-5 text-purple-500" />
-                        <div>
-                          <div className="font-semibold">Use AI Extraction</div>
-                          <div className="text-xs text-muted-foreground">
-                            Automatically extract document details using Claude
-                            AI
-                          </div>
-                        </div>
-                      </Label>
-                    </div>
-
-                    {/* Extraction Status */}
-                    {isExtracting && (
-                      <div className="flex items-center gap-3 p-4 bg-blue-50 dark:bg-blue-950/20 rounded-xl border border-blue-200 dark:border-blue-800 animate-pulse">
-                        <Loader className="h-6 w-6 text-blue-500 animate-spin" />
-                        <div>
-                          <div className="text-sm font-semibold text-blue-700 dark:text-blue-400">
-                            AI is analyzing your document...
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            This may take a few seconds
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Extraction Success */}
-                    {extractedData && !isExtracting && (
-                      <div className="p-4 bg-green-50 dark:bg-green-950/20 rounded-xl border border-green-200 dark:border-green-800">
-                        <div className="flex items-center gap-2 mb-2">
-                          <CheckCircle className="h-5 w-5 text-green-500" />
-                          <span className="text-sm font-semibold text-green-700 dark:text-green-400">
-                            AI Extraction Completed!
-                          </span>
-                          <Badge variant="secondary" className="ml-auto">
-                            {Math.round((extractedData.confidence || 0) * 100)}%
-                            confidence
-                          </Badge>
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          Review and edit the extracted information below
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Extraction Error */}
-                    {extractionError && (
-                      <div className="p-4 bg-rose-50 dark:bg-rose-950/20 rounded-xl border border-rose-200 dark:border-rose-800">
-                        <div className="flex items-center gap-2 mb-2">
-                          <AlertTriangle className="h-5 w-5 text-rose-500" />
-                          <span className="text-sm font-semibold text-rose-700 dark:text-rose-400">
-                            AI Extraction Failed
-                          </span>
-                        </div>
-                        <p className="text-xs text-muted-foreground mb-2">
-                          {extractionError}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Please fill in the details manually below
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Form Fields */}
-                    <div className="grid md:grid-cols-2 gap-4">
-                      <div className="grid gap-2">
-                        <Label
-                          htmlFor="doc-name"
-                          className="text-sm font-semibold"
-                        >
-                          Document Name *
-                        </Label>
-                        <Input
-                          id="doc-name"
-                          placeholder="e.g. Passport"
-                          value={uploadForm.name}
-                          onChange={(e) =>
-                            setUploadForm({
-                              ...uploadForm,
-                              name: e.target.value,
-                            })
-                          }
-                        />
-                      </div>
-
-                      <div className="grid gap-2">
-                        <Label
-                          htmlFor="doc-category"
-                          className="text-sm font-semibold"
-                        >
-                          Category *
-                        </Label>
-                        <Select
-                          value={uploadForm.category}
-                          onValueChange={(val) =>
-                            setUploadForm({ ...uploadForm, category: val })
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select category" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="identity">🪪 Identity</SelectItem>
-                            <SelectItem value="insurance">
-                              🛡️ Insurance
-                            </SelectItem>
-                            <SelectItem value="license">📜 License</SelectItem>
-                            <SelectItem value="contract">
-                              📄 Contract
-                            </SelectItem>
-                            <SelectItem value="other">📁 Other</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="grid gap-2">
-                        <Label
-                          htmlFor="expiry-date"
-                          className="text-sm font-semibold"
-                        >
-                          Expiry Date
-                        </Label>
-                        <Input
-                          id="expiry-date"
-                          type="date"
-                          value={uploadForm.expiryDate}
-                          onChange={(e) =>
-                            setUploadForm({
-                              ...uploadForm,
-                              expiryDate: e.target.value,
-                            })
-                          }
-                        />
-                      </div>
-
-                      <div className="grid gap-2">
-                        <Label
-                          htmlFor="doc-number"
-                          className="text-sm font-semibold"
-                        >
-                          Document Number
-                        </Label>
-                        <Input
-                          id="doc-number"
-                          placeholder="e.g. AB123456"
-                          value={uploadForm.documentNumber}
-                          onChange={(e) =>
-                            setUploadForm({
-                              ...uploadForm,
-                              documentNumber: e.target.value,
-                            })
-                          }
-                        />
-                      </div>
-
-                      <div className="grid gap-2">
-                        <Label
-                          htmlFor="issue-date"
-                          className="text-sm font-semibold"
-                        >
-                          Issue Date
-                        </Label>
-                        <Input
-                          id="issue-date"
-                          type="date"
-                          value={uploadForm.issueDate}
-                          onChange={(e) =>
-                            setUploadForm({
-                              ...uploadForm,
-                              issueDate: e.target.value,
-                            })
-                          }
-                        />
-                      </div>
-
-                      <div className="grid gap-2">
-                        <Label
-                          htmlFor="issuing-auth"
-                          className="text-sm font-semibold"
-                        >
-                          Issuing Authority
-                        </Label>
-                        <Input
-                          id="issuing-auth"
-                          placeholder="e.g. Government of USA"
-                          value={uploadForm.issuingAuthority}
-                          onChange={(e) =>
-                            setUploadForm({
-                              ...uploadForm,
-                              issuingAuthority: e.target.value,
-                            })
-                          }
-                        />
-                      </div>
-                    </div>
-
-                    <Button
-                      onClick={handleUpload}
-                      disabled={isUploading || isExtracting || !uploadForm.file}
-                      className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg hover:shadow-xl transition-all duration-300"
-                      size="lg"
-                    >
-                      {isUploading ? (
-                        <>
-                          <Loader className="mr-2 h-5 w-5 animate-spin" />
-                          Uploading...
-                        </>
-                      ) : (
-                        <>
-                          <Upload className="mr-2 h-5 w-5" />
-                          Upload Document
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
+      {/* Upload Area */}
+      <Card className="border-0 shadow-lg overflow-hidden w-full max-w-full">
+        <CardContent className="p-3 sm:p-4 md:p-6">
+          <div
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            className={`relative rounded-xl border-2 border-dashed p-6 sm:p-8 md:p-12 text-center transition-all duration-300 ${
+              isDragging
+                ? "border-purple-500 bg-purple-50 dark:bg-purple-950/30 scale-105"
+                : "border-gray-300 dark:border-gray-700 bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900/20 dark:to-blue-950/10 hover:border-purple-400 hover:shadow-lg"
+            }`}
+          >
+            <div className="flex items-center justify-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+              <Upload
+                className={`h-10 w-10 sm:h-12 sm:w-12 md:h-16 md:w-16 text-gray-400 transition-transform ${
+                  isDragging ? "scale-110" : ""
+                }`}
+              />
+              <Sparkles className="h-6 w-6 sm:h-8 sm:w-8 md:h-10 md:w-10 text-purple-500 animate-pulse" />
             </div>
-          </CardContent>
-        </Card>
+            <h3 className="text-lg sm:text-xl md:text-2xl font-bold mb-2">
+              AI-Powered Upload
+            </h3>
+            <p className="text-muted-foreground text-xs sm:text-sm md:text-base mb-4 sm:mb-6 max-w-lg mx-auto px-4">
+              Drop files here or click to upload. AI will auto-extract details.
+            </p>
+            {DocumentFormModal}
+          </div>
+        </CardContent>
+      </Card>
 
-        {/* Search and Filter */}
-        <Card className="border-0 shadow-lg">
-          <CardHeader>
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <CardTitle className="text-2xl">Your Documents</CardTitle>
-                <CardDescription>
-                  Manage and track your important documents with AI insights
-                </CardDescription>
+      {/* Documents List */}
+      <Card className="w-full max-w-full">
+        <CardHeader className="p-4 sm:p-6">
+          <div className="space-y-4">
+            {/* Title and Description */}
+            <div>
+              <CardTitle className="text-lg sm:text-xl">
+                Your Documents
+              </CardTitle>
+              <CardDescription className="text-sm mt-1">
+                Manage and track your important documents with AI insights
+              </CardDescription>
+            </div>
+
+            {/* Search and Actions - Mobile Optimized */}
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+              {/* Search Bar */}
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Search documents..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9 h-11 md:h-10"
+                />
+                {searchQuery && (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
+                    onClick={() => setSearchQuery("")}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
+
+              {/* Filter and Upload Button */}
               <div className="flex gap-2">
-                <div className="relative flex-1 sm:w-64">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    placeholder="Search documents..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9"
-                  />
-                </div>
+                {/* Mobile: Filter Toggle Button */}
+                <Button
+                  variant="outline"
+                  size="default"
+                  onClick={() => setShowFilters(!showFilters)}
+                  className="sm:hidden h-11 flex-1"
+                >
+                  <Filter className="mr-2 h-4 w-4" />
+                  Filter
+                  {activeFilters > 0 && (
+                    <span className="ml-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
+                      {activeFilters}
+                    </span>
+                  )}
+                </Button>
+
+                {/* Desktop: Filter Dropdown */}
                 <Select
                   value={filterCategory}
                   onValueChange={setFilterCategory}
                 >
-                  <SelectTrigger className="w-[140px]">
+                  <SelectTrigger className="hidden sm:flex w-[140px] h-10">
                     <Filter className="mr-2 h-4 w-4" />
                     <SelectValue />
                   </SelectTrigger>
@@ -980,133 +1012,198 @@ export default function DocumentScanner() {
                     <SelectItem value="other">Other</SelectItem>
                   </SelectContent>
                 </Select>
+
+                {DocumentFormModal}
               </div>
             </div>
-          </CardHeader>
-          <CardContent>
-            {filteredDocuments.length === 0 ? (
-              <div className="text-center py-16">
-                <FileText className="h-16 w-16 text-muted-foreground mx-auto mb-4 opacity-50" />
-                <p className="text-lg font-medium text-muted-foreground">
+
+            {/* Mobile Filter Panel */}
+            {showFilters && isMobile && (
+              <Card className="p-4 border-2">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-semibold">Category</Label>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowFilters(false)}
+                      className="h-8 w-8 p-0"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <Select
+                    value={filterCategory}
+                    onValueChange={(value) => {
+                      setFilterCategory(value);
+                      setShowFilters(false);
+                    }}
+                  >
+                    <SelectTrigger className="h-11">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Categories</SelectItem>
+                      <SelectItem value="identity">Identity</SelectItem>
+                      <SelectItem value="insurance">Insurance</SelectItem>
+                      <SelectItem value="license">License</SelectItem>
+                      <SelectItem value="contract">Contract</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {activeFilters > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setFilterCategory("all");
+                        setShowFilters(false);
+                      }}
+                      className="w-full"
+                    >
+                      Clear Filter
+                    </Button>
+                  )}
+                </div>
+              </Card>
+            )}
+          </div>
+        </CardHeader>
+
+        <CardContent className="p-3 sm:p-6 pt-0">
+          {filteredDocuments.length === 0 ? (
+            <div className="text-center py-12 sm:py-16 text-muted-foreground px-4">
+              <div className="flex flex-col items-center gap-2">
+                <FileText className="h-12 w-12 sm:h-16 sm:w-16 text-muted-foreground/50 mb-2" />
+                <p className="text-base sm:text-lg font-medium">
                   No documents found
                 </p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {searchQuery || filterCategory !== "all"
+                <p className="text-sm">
+                  {searchQuery || activeFilters > 0
                     ? "Try adjusting your filters"
                     : "Upload your first document to get started"}
                 </p>
+                {(searchQuery || activeFilters > 0) && (
+                  <Button
+                    variant="link"
+                    onClick={() => {
+                      setSearchQuery("");
+                      setFilterCategory("all");
+                    }}
+                    className="text-sm mt-2"
+                  >
+                    Clear filters
+                  </Button>
+                )}
               </div>
-            ) : (
-              <ScrollArea className="h-[600px] pr-4">
-                <div className="space-y-3">
-                  {filteredDocuments.map((doc) => (
-                    <div
-                      key={doc.id}
-                      className="group flex items-center justify-between rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5 transition-all hover:shadow-xl hover:border-blue-300 dark:hover:border-blue-700 hover:scale-[1.02] cursor-pointer"
-                    >
-                      <div className="flex items-center gap-4 flex-1 min-w-0">
-                        <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30 text-4xl font-bold shadow-md">
-                          {getCategoryIcon(doc.category)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1.5">
-                            <h4 className="font-bold text-lg truncate">
-                              {doc.name}
-                            </h4>
+            </div>
+          ) : (
+            <ScrollArea className="h-[500px] sm:h-[600px] pr-2 sm:pr-4">
+              <div className="space-y-2 sm:space-y-3">
+                {filteredDocuments.map((doc) => (
+                  <div
+                    key={doc.id}
+                    className="group flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-3 sm:p-4 transition-all hover:shadow-xl hover:border-blue-300 dark:hover:border-blue-700 hover:scale-[1.01]"
+                  >
+                    <div className="flex items-start sm:items-center gap-3 sm:gap-4 flex-1 min-w-0">
+                      <div className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-lg sm:rounded-xl bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30 text-2xl sm:text-3xl font-bold shadow-md shrink-0">
+                        {getCategoryIcon(doc.category)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h4 className="font-bold text-sm sm:text-base truncate">
+                            {doc.title}
+                          </h4>
+                          <div className="shrink-0">
                             {getStatusIcon(doc.status)}
                           </div>
-                          <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
-                            {doc.expiry_date && (
-                              <>
-                                <div className="flex items-center gap-1.5">
-                                  <Calendar className="h-3.5 w-3.5" />
-                                  <span className="font-medium">
-                                    {new Date(
-                                      doc.expiry_date
-                                    ).toLocaleDateString()}
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+                          {doc.expiry_date && (
+                            <>
+                              <div className="flex items-center gap-1">
+                                <Calendar className="h-3 w-3" />
+                                <span className="font-medium">
+                                  {new Date(
+                                    doc.expiry_date
+                                  ).toLocaleDateString()}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1 font-semibold">
+                                {daysUntilExpiry(doc.expiry_date) > 0 ? (
+                                  <span className="text-blue-600 dark:text-blue-400">
+                                    {daysUntilExpiry(doc.expiry_date)}d left
                                   </span>
-                                </div>
-                                <div className="flex items-center gap-1.5 font-semibold">
-                                  {daysUntilExpiry(doc.expiry_date) > 0 ? (
-                                    <span className="text-blue-600 dark:text-blue-400">
-                                      {daysUntilExpiry(doc.expiry_date)} days
-                                      left
-                                    </span>
-                                  ) : (
-                                    <span className="text-rose-600 dark:text-rose-400">
-                                      Expired{" "}
-                                      {Math.abs(
-                                        daysUntilExpiry(doc.expiry_date)
-                                      )}{" "}
-                                      days ago
-                                    </span>
-                                  )}
-                                </div>
-                              </>
-                            )}
-                            <span className="capitalize px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full text-xs">
-                              {doc.category}
-                            </span>
-                          </div>
-                          {doc.document_number && (
-                            <div className="mt-2 text-xs text-muted-foreground">
-                              <Info className="inline h-3 w-3 mr-1" />
-                              {doc.document_number}
-                            </div>
+                                ) : (
+                                  <span className="text-rose-600 dark:text-rose-400">
+                                    Expired
+                                  </span>
+                                )}
+                              </div>
+                            </>
                           )}
+                          <span className="capitalize px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full text-xs">
+                            {doc.category}
+                          </span>
                         </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 ml-4">
-                        <Badge
-                          variant="secondary"
-                          className={`${getStatusColor(
-                            doc.status
-                          )} border capitalize font-semibold`}
-                        >
-                          {doc.status}
-                        </Badge>
-
-                        {getExtractionBadge(doc)}
-
-                        <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => window.open(doc.file_url)}
-                            className="h-9 w-9 text-blue-500 hover:text-blue-600 hover:bg-blue-500/10"
-                            title="Download"
-                          >
-                            <Download className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => handleRenew(doc.id)}
-                            className="h-9 w-9 text-green-500 hover:text-green-600 hover:bg-green-500/10"
-                            title="Renew (Add 1 year)"
-                          >
-                            <RefreshCw className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => handleDelete(doc.id)}
-                            className="h-9 w-9 text-rose-500 hover:text-rose-600 hover:bg-rose-500/10"
-                            title="Delete"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+                        {doc.document_number && (
+                          <div className="mt-1 text-xs text-muted-foreground hidden sm:block">
+                            <Info className="inline h-3 w-3 mr-1" />
+                            {doc.document_number}
+                          </div>
+                        )}
                       </div>
                     </div>
-                  ))}
-                </div>
-              </ScrollArea>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+
+                    <div className="flex items-center gap-2 ml-auto sm:ml-0">
+                      <Badge
+                        variant="secondary"
+                        className={`${getStatusColor(
+                          doc.status
+                        )} border capitalize font-semibold text-xs shrink-0`}
+                      >
+                        {doc.status}
+                      </Badge>
+
+                      {getExtractionBadge(doc)}
+
+                      <div className="flex gap-1 sm:opacity-0 transition-opacity sm:group-hover:opacity-100">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => window.open(doc.file_url)}
+                          className="h-8 w-8 text-blue-500 hover:text-blue-600 hover:bg-blue-500/10"
+                          title="Download"
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => handleRenew(doc.id)}
+                          className="h-8 w-8 text-green-500 hover:text-green-600 hover:bg-green-500/10"
+                          title="Renew"
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => handleDelete(doc.id)}
+                          className="h-8 w-8 text-rose-500 hover:text-rose-600 hover:bg-rose-500/10"
+                          title="Delete"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

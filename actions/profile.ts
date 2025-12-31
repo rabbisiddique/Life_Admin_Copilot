@@ -1,8 +1,16 @@
 "use server";
 
 import { createServerActionClient } from "../lib/supabase/server-action";
-
-export const updateUserProfile = async (profileData, userId: string) => {
+type ProfileData = {
+  first_name: string;
+  last_name: string;
+  location: string;
+  email: string;
+};
+export const updateUserProfile = async (
+  profileData: ProfileData,
+  userId: string
+) => {
   const supabase = await createServerActionClient();
   try {
     // 1. Update auth user (email and metadata separately)
@@ -80,4 +88,73 @@ export async function updateProfileAvatarUrl(
       message: "Avatar URL updated successfully!",
     };
   }
+}
+
+export async function getUserPreferences() {
+  const supabase = await createServerActionClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { success: false, message: "Unauthorized", data: null };
+  }
+
+  const { data, error } = await supabase
+    .from("user_preferences")
+    .select("*")
+    .eq("user_id", user.id)
+    .single();
+
+  if (error) {
+    // If no preferences exist, create default ones
+    if (error.code === "PGRST116") {
+      const { data: newPrefs, error: insertError } = await supabase
+        .from("user_preferences")
+        .insert({
+          user_id: user.id,
+          bill_reminders: true,
+          task_updates: true,
+          document_expiry: true,
+        })
+        .select()
+        .single();
+
+      if (insertError) {
+        return { success: false, message: insertError.message, data: null };
+      }
+
+      return { success: true, data: newPrefs };
+    }
+
+    return { success: false, message: error.message, data: null };
+  }
+
+  return { success: true, data };
+}
+
+export async function updateUserPreferences(preferences: {
+  bill_reminders?: boolean;
+  task_updates?: boolean;
+  document_expiry?: boolean;
+}) {
+  const supabase = await createServerActionClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { success: false, message: "Unauthorized" };
+  }
+
+  const { error } = await supabase
+    .from("user_preferences")
+    .update(preferences)
+    .eq("user_id", user.id);
+
+  if (error) {
+    return { success: false, message: error.message };
+  }
+
+  return { success: true, message: "Preferences updated successfully" };
 }

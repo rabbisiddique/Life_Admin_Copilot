@@ -1,6 +1,7 @@
 "use server";
 
 import { addDays, parseISO } from "date-fns";
+import { shouldSendNotification } from "../lib/notifications/should-notify";
 import { createServerSupabaseClient } from "../lib/supabase/server";
 import { createServerActionClient } from "../lib/supabase/server-action";
 
@@ -18,7 +19,16 @@ export const createNotification = async (payload: {
   unique_key: string;
 }) => {
   const supabase = await createServerSupabaseClient();
-
+  const shouldSend = await shouldSendNotification(
+    payload.user_id,
+    payload.type
+  );
+  if (!shouldSend) {
+    console.log(
+      `📵 ${payload.type} notifications disabled for user ${payload.user_id}`
+    );
+    return { success: true, skipped: true };
+  }
   const { error } = await supabase.from("notifications").upsert(
     {
       ...payload,
@@ -55,7 +65,7 @@ export const createTaskNotification = async (
     title: "New Task Added",
     message: `Your task "${taskName}" is ready to go.`,
     type: "task",
-    action_url: `/tasks/${taskId}`,
+    action_url: `/tasks`,
     trigger_time: new Date().toISOString(),
     unique_key: `task_created_${taskId}`,
   });
@@ -193,6 +203,41 @@ export const createBillPaidNotification = async (
 };
 
 /* =========================================================
+   habits notifications
+========================================================= */
+export const createHabitStartAndEndNotification = async (
+  userId: string,
+  habitName: string,
+  habitId: string
+) => {
+  return createNotification({
+    user_id: userId,
+    title: "Habit Start",
+    message: `Your habit "${habitName}" has started.`,
+    type: "habit",
+    action_url: `/habits`,
+    trigger_time: new Date().toISOString(),
+    unique_key: `habit_expiry_${habitId}`,
+  });
+};
+
+export const createHabitCompletedNotification = async (
+  userId: string,
+  habitTitle: string,
+  habitId: string
+) => {
+  return createNotification({
+    user_id: userId,
+    title: "Habit Completed",
+    message: `Your habit "${habitTitle}" has been completed.`,
+    type: "habit",
+    action_url: `/habits`,
+    trigger_time: new Date().toISOString(),
+    unique_key: `habit_completed_${habitId}`,
+  });
+};
+
+/* =========================================================
    READ / DELETE
 ========================================================= */
 
@@ -211,10 +256,10 @@ export async function deleteNotification(
 
   if (error) {
     console.error("Delete error:", error);
-    return { success: false };
+    return { success: false, message: error.message };
   }
 
-  return { success: true, data };
+  return { success: true, message: "Deleted successfully" };
 }
 
 export async function markNotificationAsRead(
@@ -250,7 +295,7 @@ export async function markAllNotificationsAsRead(userId: string) {
 
   if (error) {
     console.error("Mark all read error:", error);
-    return { success: false };
+    return { success: false, message: error.message };
   }
 
   return { success: true, data };

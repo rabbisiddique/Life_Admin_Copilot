@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { gemini } from "../lib/ai/gemini";
 import { createClient } from "../lib/supabase/client";
 
 // ==================== AI EXTRACTION ====================
@@ -14,32 +15,26 @@ export async function extractDocument(file: File) {
     // 1. Convert file to base64
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
-    const base64 = `data:${file.type};base64,${buffer.toString("base64")}`;
+    const base64 = buffer.toString("base64");
 
-    // 2. Call OpenRouter API
-    const response = await fetch(
-      "https://openrouter.ai/api/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-          "HTTP-Referer": "https://localhost:3000",
-          "X-Title": "document-extractor",
-        },
-        body: JSON.stringify({
-          model: "openai/gpt-4o-mini",
-          messages: [
+    // 2. Determine mime type
+    const mimeType = file.type || "image/jpeg";
+
+    // 3. Call Gemini API with vision
+    const response = await gemini.models.generateContent({
+      model: "gemini-2.5-flash", // ✅ Free Gemini model
+      contents: [
+        {
+          role: "user",
+          parts: [
             {
-              role: "user",
-              content: [
-                {
-                  type: "image_url",
-                  image_url: { url: base64 },
-                },
-                {
-                  type: "text",
-                  text: `
+              inlineData: {
+                mimeType: mimeType,
+                data: base64,
+              },
+            },
+            {
+              text: `
 Extract the following fields from the document. Return ONLY valid JSON:
 
 {
@@ -56,27 +51,28 @@ Rules:
 - Missing values -> empty string
 - Dates must be YYYY-MM-DD
 - No extra text. Only JSON.
-                `,
-                },
-              ],
+              `,
             },
           ],
-        }),
-      }
-    );
+        },
+      ],
+    });
 
-    const data = await response.json();
+    const text = response.text;
+    console.log("text", text);
 
-    const text = data?.choices?.[0]?.message?.content;
-    if (!text) throw new Error("No response from AI");
+    if (!text) throw new Error("No response from Gemini");
 
+    // Extract JSON from response
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error("AI did not return JSON");
 
     const extracted = JSON.parse(jsonMatch[0]);
+    console.log(extracted);
 
     return { success: true, data: extracted, error: null };
   } catch (err) {
+    console.error("❌ Document extraction error:", err);
     return {
       success: false,
       data: null,

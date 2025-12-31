@@ -18,7 +18,7 @@ const OtpPage = () => {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleOtpChange = (index, value) => {
+  const handleOtpChange = (index: number, value: string) => {
     if (value.length <= 1 && /^\d*$/.test(value)) {
       const newOtp = [...otp];
       newOtp[index] = value;
@@ -30,7 +30,10 @@ const OtpPage = () => {
     }
   };
 
-  const handleOtpKeyDown = (index, e) => {
+  const handleOtpKeyDown = (
+    index: number,
+    e: React.KeyboardEvent<HTMLInputElement>
+  ) => {
     if (e.key === "Backspace" && !otp[index] && index > 0) {
       document.getElementById(`otp-${index - 1}`)?.focus();
     }
@@ -68,7 +71,7 @@ const OtpPage = () => {
               animate={{ scale: 1, opacity: 1 }}
               transition={{ delay: 0.1, type: "spring", stiffness: 200 }}
             >
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary via-primary to-primary/80 shadow-lg">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-linear-to-br from-primary via-primary to-primary/80 shadow-lg">
                 <CheckCircle2 className="h-8 w-8 text-primary-foreground" />
               </div>
             </motion.div>
@@ -108,7 +111,7 @@ const OtpPage = () => {
 
               <Button
                 onClick={handleVerifyOtp}
-                className="w-full h-11 bg-gradient-to-r from-primary to-primary/90 hover:shadow-lg transition-all"
+                className="w-full h-11 bg-linear-to-r from-primary to-primary/90 hover:shadow-lg transition-all"
                 disabled={isLoading || otp.some((d) => !d)}
               >
                 {isLoading ? "Verifying..." : "Verify Code"}

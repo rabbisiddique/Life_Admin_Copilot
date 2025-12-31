@@ -4,7 +4,7 @@ import { createServerSupabaseClient } from "../lib/supabase/server";
 import { ITasks } from "../type/index.tasks";
 import { createTaskNotification } from "./notifications";
 
-export const CreateTaskAction = async (tasks: ITasks) => {
+export const CreateTaskAction = async (tasks: Omit<ITasks, "id">) => {
   try {
     const supabase = await createServerSupabaseClient();
     const { data: userData } = await supabase.auth.getUser();
@@ -43,7 +43,10 @@ export const CreateTaskAction = async (tasks: ITasks) => {
   }
 };
 
-export const UpdateTaskAction = async (tasks: ITasks, id: string) => {
+export const UpdateTaskAction = async (
+  tasks: Omit<ITasks, "id">,
+  id: string
+) => {
   try {
     const supabase = await createServerSupabaseClient();
 

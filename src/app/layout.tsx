@@ -42,7 +42,7 @@ export default function RootLayout({
       <body suppressHydrationWarning>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <Toaster
-            position="top-center"
+            position="bottom-right"
             toastOptions={{
               duration: 3000,
               style: {

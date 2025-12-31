@@ -27,7 +27,7 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import toast from "react-hot-toast";
 import * as z from "zod";
-import { supabase } from "../../../../lib/supabase";
+import { createClient } from "../../../../lib/supabase/client";
 import { updatePassword } from "../../../../lib/updatePassword";
 
 const newPasswordSchema = z
@@ -47,7 +47,7 @@ const NewPassword = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const router = useRouter();
-
+  const supabase = createClient();
   const newPasswordForm = useForm<NewPasswordFormValues>({
     resolver: zodResolver(newPasswordSchema),
     defaultValues: {
