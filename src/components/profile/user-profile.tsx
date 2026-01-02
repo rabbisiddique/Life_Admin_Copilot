@@ -40,11 +40,8 @@ import {
   updateUserPreferences,
   updateUserProfile,
 } from "../../../actions/profile";
-import { useAuth } from "../../../hooks/useAuth";
-import {
-  emailConfirmedAt,
-  getMemberSinceFormatted,
-} from "../../../lib/date/date";
+import { useProfileAuth } from "../../../hooks/useAuth";
+import { getMemberSinceFormatted } from "../../../lib/date/date";
 import { createClient } from "../../../lib/supabase/client";
 import { uploadAvatar } from "../../../lib/uploadFile";
 
@@ -56,11 +53,11 @@ interface Preferences {
 }
 
 export default function UserProfile() {
-  const { user } = useAuth();
+  const { userProfile } = useProfileAuth();
   const [profileData, setProfileData] = useState({
-    first_name: user?.user_metadata?.first_name || "",
-    last_name: user?.user_metadata?.last_name || "",
-    location: user?.user_metadata?.location || "",
+    first_name: userProfile?.first_name || "",
+    last_name: userProfile?.last_name || "",
+    location: userProfile?.location || "",
   });
 
   const [isEditing, setIsEditing] = useState(false);
@@ -81,7 +78,7 @@ export default function UserProfile() {
   const handleSave = async () => {
     setIsLoading(true);
     try {
-      const res = await updateUserProfile(profileData, user!.id);
+      const res = await updateUserProfile(profileData, userProfile!.id);
 
       if (res.success) {
         toast.success(res.message);
@@ -132,7 +129,7 @@ export default function UserProfile() {
 
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !user?.id) return;
+    if (!file || !userProfile?.id) return;
 
     if (file.size > 5 * 1024 * 1024) {
       toast.error("Image must be less than 5MB");
@@ -155,8 +152,8 @@ export default function UserProfile() {
     reader.readAsDataURL(file);
 
     try {
-      const oldAvatarUrl = user?.user_metadata?.avatar_url;
-      const newUrl = await uploadAvatar(file, user.id);
+      const oldAvatarUrl = userProfile?.avatar_url;
+      const newUrl = await uploadAvatar(file, userProfile.id);
 
       if (!newUrl) {
         toast.error("Failed to upload avatar");
@@ -174,7 +171,7 @@ export default function UserProfile() {
         return;
       }
 
-      const res = await updateProfileAvatarUrl(user.id, "");
+      const res = await updateProfileAvatarUrl(userProfile.id, "");
 
       if (res.success) {
         if (oldAvatarUrl) {
@@ -193,12 +190,12 @@ export default function UserProfile() {
   };
 
   const handleRemoveImage = async () => {
-    if (!user?.id) return;
+    if (!userProfile?.id) return;
 
     setIsUploading(true);
 
     try {
-      const oldAvatarUrl = user?.user_metadata?.avatar_url;
+      const oldAvatarUrl = userProfile?.avatar_url;
 
       const { error } = await supabase.auth.updateUser({
         data: { avatar_url: null },
@@ -210,7 +207,7 @@ export default function UserProfile() {
         return;
       }
 
-      await updateProfileAvatarUrl(user.id, "");
+      await updateProfileAvatarUrl(userProfile.id, "");
 
       if (oldAvatarUrl) {
         await deleteOldAvatar(oldAvatarUrl);
@@ -228,20 +225,20 @@ export default function UserProfile() {
   };
 
   useEffect(() => {
-    if (user?.user_metadata?.avatar_url) {
-      setPreviewUrl(user.user_metadata.avatar_url);
+    if (userProfile?.avatar_url) {
+      setPreviewUrl(userProfile?.avatar_url);
     }
-  }, [user]);
+  }, [userProfile]);
 
   useEffect(() => {
-    if (user) {
+    if (userProfile) {
       setProfileData({
-        first_name: user.user_metadata?.first_name || "",
-        last_name: user.user_metadata?.last_name || "",
-        location: user.user_metadata?.location || "",
+        first_name: userProfile?.first_name || "",
+        last_name: userProfile?.last_name || "",
+        location: userProfile?.location || "",
       });
     }
-  }, [user]);
+  }, [userProfile]);
 
   useEffect(() => {
     const loadPreferences = async () => {
@@ -308,7 +305,7 @@ export default function UserProfile() {
             whileHover={{ scale: 1.05 }}
             className="self-start sm:self-auto"
           >
-            {user?.email_confirmed_at ? (
+            {userProfile?.is_verified ? (
               <Badge
                 variant="secondary"
                 className="text-xs sm:text-sm px-3 sm:px-4 py-1.5 sm:py-2 shadow-lg bg-green-500/10 border-green-500/20"
@@ -352,8 +349,8 @@ export default function UserProfile() {
                     <AvatarImage
                       src={
                         previewUrl ||
-                        user?.user_metadata?.avatar_url ||
-                        "/placeholder-user.jpg"
+                        userProfile?.avatar_url ||
+                        "/placeholder-userProfile.jpg"
                       }
                       className={
                         isUploading
@@ -362,8 +359,8 @@ export default function UserProfile() {
                       }
                     />
                     <AvatarFallback className="text-3xl sm:text-4xl lg:text-5xl bg-linear-to-br from-primary to-primary/70 text-primary-foreground font-bold">
-                      {user?.user_metadata?.full_name?.[0]?.toUpperCase() ||
-                        user?.email?.[0]?.toUpperCase() ||
+                      {userProfile?.first_name?.[0]?.toUpperCase() ||
+                        userProfile?.email?.[0]?.toUpperCase() ||
                         "U"}
                     </AvatarFallback>
                   </Avatar>
@@ -434,11 +431,10 @@ export default function UserProfile() {
                   />
                 </motion.div>
 
-                {/* User Info - Responsive text */}
+                {/* userProfile Info - Responsive text */}
                 <div className="text-center space-y-1.5 sm:space-y-2 w-full">
                   <h3 className="text-xl sm:text-2xl font-bold">
-                    {user?.user_metadata?.first_name?.toUpperCase() ||
-                      "John Doe"}
+                    {userProfile?.first_name?.toUpperCase() || "John Doe"}
                   </h3>
                   <p className="text-sm sm:text-base text-muted-foreground">
                     Product Designer
@@ -475,7 +471,7 @@ export default function UserProfile() {
                         Email
                       </p>
                       <p className="text-xs sm:text-sm font-medium truncate">
-                        {user?.user_metadata?.email}
+                        {userProfile?.email}
                       </p>
                     </div>
                   </motion.div>
@@ -495,8 +491,9 @@ export default function UserProfile() {
                         Email Confirmed At
                       </p>
                       <p className="text-xs sm:text-sm font-medium truncate">
-                        {emailConfirmedAt(user?.email_confirmed_at || "") ??
-                          "Not confirmed"}
+                        {userProfile?.is_verified
+                          ? "Confirmed"
+                          : "Not confirmed"}
                       </p>
                     </div>
                   </motion.div>
@@ -516,7 +513,7 @@ export default function UserProfile() {
                         Location
                       </p>
                       <p className="text-xs sm:text-sm font-medium truncate">
-                        {user?.user_metadata?.location || "Not set"}
+                        {userProfile?.location || "Not set"}
                       </p>
                     </div>
                   </motion.div>
@@ -536,7 +533,8 @@ export default function UserProfile() {
                         Member Since
                       </p>
                       <p className="text-xs sm:text-sm font-medium truncate">
-                        {getMemberSinceFormatted(user?.created_at) ?? "-"}
+                        {getMemberSinceFormatted(userProfile?.created_at) ??
+                          "-"}
                       </p>
                     </div>
                   </motion.div>
