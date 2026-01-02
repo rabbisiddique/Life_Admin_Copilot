@@ -171,7 +171,7 @@ export default function UserProfile() {
         return;
       }
 
-      const res = await updateProfileAvatarUrl(userProfile.id, "");
+      const res = await updateProfileAvatarUrl(userProfile.id, newUrl);
 
       if (res.success) {
         if (oldAvatarUrl) {
@@ -472,28 +472,6 @@ export default function UserProfile() {
                       </p>
                       <p className="text-xs sm:text-sm font-medium truncate">
                         {userProfile?.email}
-                      </p>
-                    </div>
-                  </motion.div>
-
-                  <motion.div
-                    whileHover={{
-                      x: 6,
-                      backgroundColor: "hsl(var(--accent))",
-                    }}
-                    className="flex items-center gap-2.5 sm:gap-3 p-2.5 sm:p-3 rounded-lg sm:rounded-xl transition-all cursor-pointer group"
-                  >
-                    <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 group-hover:bg-primary/20 transition-colors">
-                      <Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs text-muted-foreground font-medium">
-                        Email Confirmed At
-                      </p>
-                      <p className="text-xs sm:text-sm font-medium truncate">
-                        {userProfile?.is_verified
-                          ? "Confirmed"
-                          : "Not confirmed"}
                       </p>
                     </div>
                   </motion.div>

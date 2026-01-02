@@ -65,23 +65,31 @@ export async function updateProfileAvatarUrl(
 ) {
   const supabase = await createServerActionClient();
 
-  const { data, error } = await supabase
-    .from("users") // Replace 'profiles' with your table name
-    .update({ avatar_url: newAvatarUrl, updated_at: new Date() })
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user || user.id !== userId) {
+    return {
+      success: false,
+      message: "Unauthorized",
+    };
+  }
+
+  const { error, count } = await supabase
+    .from("users")
+    .update({
+      avatar_url: newAvatarUrl,
+      updated_at: new Date().toISOString(),
+    })
     .eq("id", userId);
 
   if (error) {
-    console.error("Error updating profile:", error.message);
-    return {
-      success: false,
-      message: error.message,
-    };
-  } else {
-    return {
-      success: true,
-      message: "Avatar URL updated successfully!",
-    };
+    console.error(error);
+    return { success: false, message: error.message };
   }
+
+  return { success: true };
 }
 
 export async function getUserPreferences() {

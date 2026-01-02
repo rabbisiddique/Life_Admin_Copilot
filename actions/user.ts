@@ -8,27 +8,11 @@ export const SignUp = async (formData: ISignup) => {
   const supabase = await createServerSupabaseClient();
 
   try {
-    // 1️⃣ Check if user already exists
-    const { data: existingUser } = await supabase
-      .from("users")
-      .select("email")
-      .eq("email", formData.email)
-      .single();
-
-    if (existingUser) {
-      return {
-        success: false,
-        message: "This email is already registered. Please sign in instead.",
-      };
-    }
-
-    // 2️⃣ Sign up with Supabase Auth
+    // Try signing up first - Supabase will handle duplicate check
     const { data, error } = await supabase.auth.signUp({
       email: formData.email,
       password: formData.password,
       options: {
-        emailRedirectTo: "http://localhost:3000/api/auth/callback/",
-
         data: {
           first_name: formData.first_name,
           last_name: formData.last_name,
@@ -38,43 +22,15 @@ export const SignUp = async (formData: ISignup) => {
       },
     });
 
-    // 3️⃣ Handle auth errors
     if (error) {
-      return {
-        success: false,
-        message: error.message || "Signup failed.",
-      };
-    }
+      console.error("Signup error:", error);
 
-    // 4️⃣ Check if user data exists
-    if (!data?.user) {
-      return {
-        success: false,
-        message: "User creation failed. Please try again.",
-      };
-    }
-
-    const user = data.user;
-
-    // 5️⃣ ONLY insert if NO database trigger exists
-    // If you have a trigger, REMOVE this entire block
-    const { error: profileError } = await supabase.from("users").insert({
-      id: user.id,
-      email: user.email,
-      first_name: user.user_metadata?.first_name || formData.first_name,
-      last_name: user.user_metadata?.last_name || formData.last_name,
-      location: user.user_metadata?.location || formData.location,
-      avatar_url: user.user_metadata?.avatar_url || formData.avatar_url,
-      is_verified: false,
-      created_at: new Date().toISOString(),
-      last_login: new Date().toISOString(),
-    });
-
-    if (profileError) {
-      console.error("Profile insert error:", profileError);
-
-      // Duplicate key error - user already exists
-      if (profileError.code === "23505") {
+      // Check for duplicate user errors
+      if (
+        error.message.includes("already registered") ||
+        error.message.includes("User already registered") ||
+        error.message.includes("already been registered")
+      ) {
         return {
           success: false,
           message: "This email is already registered. Please sign in instead.",
@@ -83,7 +39,22 @@ export const SignUp = async (formData: ISignup) => {
 
       return {
         success: false,
-        message: "Failed to create user profile. Please try again.",
+        message: error.message || "Signup failed. Please try again.",
+      };
+    }
+
+    if (!data?.user) {
+      return {
+        success: false,
+        message: "User creation failed. Please try again.",
+      };
+    }
+
+    // Check if we got an "identities" array - if empty, user already exists
+    if (data.user.identities && data.user.identities.length === 0) {
+      return {
+        success: false,
+        message: "This email is already registered. Please sign in instead.",
       };
     }
 
@@ -94,10 +65,15 @@ export const SignUp = async (formData: ISignup) => {
       message: data.session
         ? "Signup successful! You are now logged in."
         : "Signup successful! Please check your email to verify your account.",
-      user,
+      user: data.user,
     };
   } catch (err) {
     console.error("Signup error:", err);
+
+    if (err instanceof Error && err.message === "NEXT_REDIRECT") {
+      throw err;
+    }
+
     return {
       success: false,
       message: "Something went wrong. Please try again.",
@@ -136,8 +112,7 @@ export const SignIn = async (formData: { email: string; password: string }) => {
         .eq("id", data.user.id);
     }
 
-    revalidatePath("/");
-
+    revalidatePath("/dashboard");
     return {
       success: true,
       message: "Logged in successfully",
@@ -171,25 +146,6 @@ export const sendForgotPassLink = async (email: string) => {
   } catch (err: any) {
     return { success: false, message: err.message || "Something went wrong" };
   }
-};
-
-export const resendVerificationEmail = async (email: string) => {
-  const supabase = await createServerSupabaseClient();
-
-  const { data, error } = await supabase.auth.resend({
-    type: "signup",
-    email,
-  });
-
-  if (error) {
-    return { success: false, message: error.message };
-  }
-
-  return {
-    success: true,
-    message: "Verification email sent again!",
-    data,
-  };
 };
 
 export const userProfileData = async () => {

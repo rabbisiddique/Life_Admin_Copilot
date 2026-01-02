@@ -45,6 +45,7 @@ const signupSchema = z
     message: "Passwords don't match",
     path: ["confirmPassword"],
   });
+
 const SignUpPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -83,6 +84,7 @@ const SignUpPage = () => {
         toast.error(res.message);
       } else {
         toast.success(res.message);
+        router.push("/dashboard");
         signupForm.reset();
       }
     } catch (error: any) {

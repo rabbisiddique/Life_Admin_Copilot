@@ -254,6 +254,7 @@ export default function HabitsPage() {
         toast.success(res.message);
         setIsAddHabitOpen(false);
         reset();
+        await loadHabits(false);
       }
     } catch (error: any) {
       console.error("Error creating habit:", error);
@@ -273,6 +274,7 @@ export default function HabitsPage() {
       } else {
         toast.success("Habit marked as incomplete");
       }
+      await loadHabits(false);
     } catch (err: any) {
       toast.error(err.message);
     }
@@ -313,43 +315,6 @@ export default function HabitsPage() {
   useEffect(() => {
     loadHabits();
   }, []);
-
-  // Real-time subscription
-  useEffect(() => {
-    const channel = supabase
-      .channel("habits-realtime")
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "habit_logs",
-        },
-        (payload) => {
-          console.log("🔥 habit_logs INSERT", payload);
-          loadHabits(false);
-        }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "habits",
-        },
-        (payload) => {
-          console.log("✏️ habits UPDATE", payload);
-          loadHabits(false);
-        }
-      )
-      .subscribe((status) => {
-        console.log("📡 Realtime status:", status);
-      });
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [supabase]);
 
   const filteredHabits = habits.filter((habit) => {
     const matchSearch = habit.title
