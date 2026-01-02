@@ -2,7 +2,6 @@
 
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import useSyncUser from "../../hooks/UserSync";
 import { ChatWidget } from "./ai-copilot/chat-widget";
 import { NotificationListener } from "./notifications/NotificationListener";
 import { Sidebar } from "./sidebar/Sidebar";
@@ -17,7 +16,6 @@ export default function ClientLayout({
   const [isMounted, setIsMounted] = useState(false);
 
   // IMPORTANT: Call all hooks at the top level, unconditionally
-  useSyncUser();
 
   // Define auth routes (no UI chrome)
   const exactRoutes = ["/", "/not-found"];

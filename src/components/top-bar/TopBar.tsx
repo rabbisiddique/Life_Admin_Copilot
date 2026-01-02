@@ -14,17 +14,16 @@ import { ChevronDown, LogOut, Moon, Sun, User } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { useAuth } from "../../../hooks/useAuth";
+import { useProfileAuth } from "../../../hooks/useAuth";
 import { createClient } from "../../../lib/supabase/client";
 import NotificationDropdown from "./NofificationDropDown";
 
 export function TopBar() {
   const [mounted, setMounted] = useState(false);
   const { theme, setTheme } = useTheme();
-  const { user } = useAuth();
   const router = useRouter();
   const supabase = createClient();
-
+  const { userProfile } = useProfileAuth();
   useEffect(() => setMounted(true), []);
 
   const handleSignOut = async () => {
@@ -73,19 +72,19 @@ export function TopBar() {
           <DropdownMenuTrigger asChild>
             <motion.button className="flex items-center gap-2 rounded-xl p-1 pr-3 hover:bg-accent transition-colors">
               <Avatar className="h-9 w-9 ring-2 ring-primary/20">
-                <AvatarImage src={user?.user_metadata?.avatar_url} />
+                <AvatarImage src={userProfile?.avatar_url!} />
                 <AvatarFallback className="bg-gradient-to-br from-primary to-primary/70 text-primary-foreground font-bold">
-                  {user?.user_metadata?.first_name?.[0]?.toUpperCase() ||
-                    user?.email?.[0]?.toUpperCase() ||
+                  {userProfile?.first_name?.[0]?.toUpperCase() ||
+                    userProfile?.email?.[0]?.toUpperCase() ||
                     "U"}
                 </AvatarFallback>
               </Avatar>
               <div className="hidden md:flex flex-col items-start">
                 <span className="text-sm font-semibold leading-none">
-                  {user?.user_metadata?.first_name || "User"}
+                  {userProfile?.first_name || "User"}
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  {user?.email}
+                  {userProfile?.email}
                 </span>
               </div>
               <ChevronDown className="h-4 w-4 text-muted-foreground hidden md:block" />
@@ -96,9 +95,11 @@ export function TopBar() {
             <DropdownMenuLabel>
               <div className="flex flex-col space-y-1">
                 <p className="text-sm font-medium">
-                  {user?.user_metadata?.first_name || "User"}
+                  {userProfile?.first_name || "User"}
                 </p>
-                <p className="text-xs text-muted-foreground">{user?.email}</p>
+                <p className="text-xs text-muted-foreground">
+                  {userProfile?.email}
+                </p>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />

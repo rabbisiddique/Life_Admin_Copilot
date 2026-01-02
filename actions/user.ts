@@ -191,3 +191,51 @@ export const resendVerificationEmail = async (email: string) => {
     data,
   };
 };
+
+export const userProfileData = async () => {
+  const supabase = await createServerSupabaseClient();
+
+  try {
+    // Get the authenticated user first
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return {
+        success: false,
+        message: "Not authenticated",
+        profile: null,
+      };
+    }
+
+    // Fetch profile with user ID
+    const { data: profile, error: profileError } = await supabase
+      .from("users")
+      .select("*")
+      .eq("id", user.id) // ← Add this filter!
+      .single();
+
+    if (profileError) {
+      console.error("❌ Error fetching profile:", profileError);
+      return {
+        success: false,
+        message: profileError.message,
+        profile: null,
+      };
+    }
+
+    return {
+      success: true,
+      profile,
+      message: null,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: "Internal server error",
+      profile: null,
+    };
+  }
+};

@@ -1,5 +1,6 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { NextResponse } from "next/server";
 
 export async function createServerActionClient() {
   const cookieStore = await cookies();
@@ -17,6 +18,30 @@ export async function createServerActionClient() {
         },
         remove(name: string, options: CookieOptions) {
           cookieStore.delete(name);
+        },
+      },
+    }
+  );
+}
+
+export async function createRouteHandlerClient(response: NextResponse) {
+  const cookieStore = await cookies();
+
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value;
+        },
+        set(name: string, value: string, options: CookieOptions) {
+          cookieStore.set({ name, value, ...options });
+          response.cookies.set({ name, value, ...options });
+        },
+        remove(name: string, options: CookieOptions) {
+          cookieStore.delete(name);
+          response.cookies.set({ name, value: "", ...options, maxAge: 0 });
         },
       },
     }

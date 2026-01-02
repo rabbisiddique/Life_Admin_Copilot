@@ -16,7 +16,7 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { useAuth } from "../../../hooks/useAuth";
+import { useProfileAuth } from "../../../hooks/useAuth";
 import { cn } from "../../../lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 
@@ -33,7 +33,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
-  const { user } = useAuth();
+  const { userProfile } = useProfileAuth();
   return (
     <>
       {/* Mobile menu button */}
@@ -154,20 +154,20 @@ export function Sidebar() {
                   transition={{ duration: 0.6 }}
                 >
                   <Avatar className="h-9 w-9 ring-1 ring-primary/20">
-                    <AvatarImage src={user?.user_metadata?.avatar_url} />
+                    <AvatarImage src={userProfile?.avatar_url!} />
                     <AvatarFallback className="bg-gradient-to-br from-primary to-primary/70 text-primary-foreground font-bold">
-                      {user?.user_metadata?.first_name?.[0]?.toUpperCase() ||
-                        user?.email?.[0]?.toUpperCase() ||
-                        "R"}
+                      {userProfile?.first_name?.[0]?.toUpperCase() ||
+                        userProfile?.email?.[0]?.toUpperCase() ||
+                        "U"}
                     </AvatarFallback>
                   </Avatar>{" "}
                 </motion.div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold text-sidebar-foreground truncate">
-                    {user?.user_metadata?.first_name || "User"}
+                    {userProfile?.first_name || "User"}
                   </p>
                   <p className="text-xs text-muted-foreground truncate">
-                    {user?.email}
+                    {userProfile?.email}
                   </p>
                 </div>
               </motion.div>
