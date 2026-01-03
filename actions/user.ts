@@ -131,20 +131,35 @@ export const sendForgotPassLink = async (email: string) => {
   const supabase = await createServerSupabaseClient();
 
   try {
+    const baseUrl =
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      process.env.NEXT_PUBLIC_SITE_PRODUCTION_URL ||
+      "http://localhost:3000";
+
     const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/new-password`,
+      redirectTo: `${baseUrl}/api/auth/callback?next=/auth/new-password`,
     });
 
     if (error) {
+      console.error("Reset password error:", error);
       return {
         success: false,
-        message: error.message || "Error in sendForgotPass",
+        message:
+          error.message || "Failed to send reset email. Please try again.",
       };
     }
 
-    return { success: true, message: "An email has been sent!", data };
+    return {
+      success: true,
+      message: "Password reset link sent! Check your email.",
+      data,
+    };
   } catch (err: any) {
-    return { success: false, message: err.message || "Something went wrong" };
+    console.error("Unexpected error in sendForgotPassLink:", err);
+    return {
+      success: false,
+      message: err.message || "Something went wrong. Please try again.",
+    };
   }
 };
 
