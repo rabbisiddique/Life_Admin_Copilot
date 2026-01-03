@@ -131,10 +131,7 @@ export const sendForgotPassLink = async (email: string) => {
   const supabase = await createServerSupabaseClient();
 
   try {
-    const baseUrl =
-      process.env.NEXT_PUBLIC_SITE_URL ||
-      process.env.NEXT_PUBLIC_SITE_PRODUCTION_URL ||
-      "http://localhost:3000";
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
     const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${baseUrl}/api/auth/callback?next=/auth/new-password`,
