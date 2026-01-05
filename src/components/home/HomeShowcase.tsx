@@ -125,14 +125,12 @@ const HomeShowcase = () => {
                 <X className="text-white" size={20} />
               </button>
               <div className="relative pt-[56.25%]">
-                <video
+                <iframe
                   className="absolute inset-0 w-full h-full"
-                  controls
-                  autoPlay
-                  src="/Life_Admin_Copilot.mp4"
-                >
-                  Your browser does not support the video tag.
-                </video>
+                  src="https://player.vimeo.com/video/1151468899?fl=ip&fe=ec"
+                  allow="autoplay; fullscreen; picture-in-picture"
+                  allowFullScreen
+                ></iframe>
               </div>
             </motion.div>
           </motion.div>
