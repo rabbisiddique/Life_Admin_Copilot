@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": "npm install --legacy-peer-deps && next build",
+    "build": "next build",
     "dev": "next dev",
     "lint": "eslint .",
     "start": "next start"
@@ -45,6 +45,10 @@
     "@supabase/auth-helpers-nextjs": "^0.10.0",
     "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.84.0",
+    "@tailwindcss/postcss": "^4.1.9",
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
     "@vercel/analytics": "latest",
     "autoprefixer": "^10.4.20",
     "axios": "^1.13.2",
@@ -60,6 +64,7 @@
     "next": "^15.5.9",
     "next-themes": "latest",
     "openai": "^6.9.1",
+    "postcss": "^8.5",
     "react": "^18.3.1",
     "react-chartjs-2": "^5.3.1",
     "react-day-picker": "9.8.0",
@@ -71,19 +76,14 @@
     "recharts": "latest",
     "sonner": "^1.7.4",
     "tailwind-merge": "^2.5.5",
+    "tailwindcss": "^4.1.9",
     "tailwindcss-animate": "^1.0.7",
-    "typescript": "^6.0.2",
+    "tw-animate-css": "1.3.3",
+    "typescript": "^5.8.3",
     "vaul": "^1.1.2",
     "zod": "3.25.76"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.1.9",
-    "@types/axios": "^0.9.36",
-    "@types/node": "^22",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "postcss": "^8.5",
-    "tailwindcss": "^4.1.9",
-    "tw-animate-css": "1.3.3"
+    "@types/axios": "^0.9.36"
   }
 }
