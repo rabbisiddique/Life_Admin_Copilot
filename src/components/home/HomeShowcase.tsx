@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { useTheme } from "next-themes";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 const HomeShowcase = () => {
@@ -21,6 +22,7 @@ const HomeShowcase = () => {
   const [currentSuggestion, setCurrentSuggestion] = useState(0);
   const [showVideoModal, setShowVideoModal] = useState(false);
   const { theme, setTheme } = useTheme();
+  const router = useRouter();
 
   const suggestions = [
     "Your Netflix bill is due tomorrow.",
@@ -197,7 +199,10 @@ const HomeShowcase = () => {
 
             {/* CTAs */}
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
-              <button className="group px-10 py-5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-2xl hover:shadow-2xl transition-all duration-300 font-semibold text-lg flex items-center gap-3">
+              <button
+                onClick={() => router.push("/auth/login")}
+                className="group px-10 py-5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-2xl hover:shadow-2xl transition-all duration-300 font-semibold text-lg flex items-center gap-3"
+              >
                 Enter Dashboard
                 <ArrowRight
                   className="group-hover:translate-x-1 transition-transform"
@@ -489,8 +494,8 @@ const HomeShowcase = () => {
                           colIdx === 0
                             ? "bg-blue-500"
                             : colIdx === 1
-                            ? "bg-purple-500"
-                            : "bg-pink-500"
+                              ? "bg-purple-500"
+                              : "bg-pink-500"
                         }`}
                       ></div>
                       {column}
@@ -500,7 +505,7 @@ const HomeShowcase = () => {
                         (task) =>
                           (colIdx === 0 && task.status === "today") ||
                           (colIdx === 1 && task.status === "tomorrow") ||
-                          (colIdx === 2 && task.status === "upcoming")
+                          (colIdx === 2 && task.status === "upcoming"),
                       )
                       .map((task, idx) => (
                         <div
@@ -535,7 +540,10 @@ const HomeShowcase = () => {
                   Join thousands who've transformed their productivity with AI
                   assistance
                 </p>
-                <button className="px-12 py-5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-2xl hover:shadow-2xl transition-all duration-300 font-bold text-lg inline-flex items-center gap-3 group">
+                <button
+                  onClick={() => router.push("/auth/login")}
+                  className="px-12 py-5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-2xl hover:shadow-2xl transition-all duration-300 font-bold text-lg inline-flex items-center gap-3 group"
+                >
                   Enter Your Dashboard
                   <ArrowRight
                     className="group-hover:translate-x-1 transition-transform"
